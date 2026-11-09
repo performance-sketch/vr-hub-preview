@@ -300,7 +300,7 @@
     return `<div class="board"><div class="board-head">${icon('heli')}<h2>Status de Voo</h2>${withFoot ? `<a class="board-edit" href="#/programacao" title="Editar voos na Programação">${icon('pencil')}Editar</a>` : ''}</div>
       <table><thead><tr><th style="width:17%">HORÁRIO</th><th style="width:8%">FITA</th><th style="width:9%">PAX</th><th style="width:21%">VOO</th><th>STATUS</th>${withFoot ? '<th style="width:9%">AVISO</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>
       ${withFoot && OPS.operador && !OPS.operador.admin && list.length ? '<div class="qe-nota">Horário, pulseira e PAX: edição rápida só para administradores.</div>' : ''}
-      ${withFoot ? `<div class="board-foot"><a href="#/programacao">Cadastrar e editar voos →</a><a href="#/painel">Abrir painel da TV →</a></div>` : ''}</div>`;
+      ${withFoot ? `<div class="board-foot"><a href="#/programacao">Cadastrar e editar voos →</a></div>` : ''}</div>`;
   }
   function totalsBox(s) {
     const t = cycleTotals(cycleOf(s), true);
