@@ -469,3 +469,6 @@ body.tv .tv-main { min-height: calc(100vh - 64px); align-items: start; }
   .sd-nav { display: none; padding: 10px 0 6px; }
   .side.aberto .sd-nav { display: flex; }
 }
+
+/* listas abertas dos seletores do quadro preto (fita, status): texto preto sobre fundo branco */
+.board select option { color: #000; background: #fff; }
