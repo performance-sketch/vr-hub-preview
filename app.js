@@ -238,7 +238,7 @@
   }
   function clockHTML() {
     const n = new Date();
-    return `<div class="date"><div>${DOW[n.getDay()].replace('-feira', '-FEIRA')}</div><div>${br(iso(n))}</div></div><span class="sep"></span><div class="time" data-clock>${pad(n.getHours())}:${pad(n.getMinutes())}</div>`;
+    return `<div class="date"><div>${DOW[n.getDay()]}</div><div>${br(iso(n))}</div></div><span class="sep"></span><div class="time" data-clock>${pad(n.getHours())}:${pad(n.getMinutes())}</div>`;
   }
   function bindUserMenu() {
     const btn = document.getElementById('userBtn'); if (!btn) return;
@@ -744,7 +744,7 @@
           <div class="toggle"><button data-mode="full" class="${escMode === 'full' ? 'on' : ''}">Escala completa</button><button data-mode="ind" class="${escMode === 'ind' ? 'on' : ''}">Individual</button></div>
           <button class="btn" id="copyPrev">${icon('copyplus')} Copiar mês anterior</button></div></div>
       <div class="cal">${['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'].map(d => `<div class="dow">${d}</div>`).join('')}${cells.join('')}</div>
-      <div class="legend"><span><i style="background:#000"></i>Trabalho</span><span><i style="border:1px dashed #a1a1aa"></i>Folga</span><span><i style="background:#71717a"></i>Férias</span><span><i style="border:1px solid #000"></i>Dispensa médica</span><span>✎ Observação</span><span>⚠ Conflito</span></div>
+      <div class="legend"><span><i class="lg-T"></i>Trabalho</span><span><i class="lg-F"></i>Folga</span><span><i class="lg-V"></i>Férias</span><span><i class="lg-M"></i>Dispensa médica</span><span>✎ Observação</span><span>⚠ Conflito</span></div>
       <div class="grid g2" style="gap:32px">
         <div><div class="section-title" style="margin-top:0">Resumo do mês</div><div class="card"><table class="tbl"><thead><tr><th>Funcionário</th><th>Trabalho</th><th>Folgas</th><th>Férias</th><th>Disp. méd.</th></tr></thead><tbody>${resumo || '<tr><td colspan="5" class="muted">Ninguém no setor Operação.</td></tr>'}</tbody></table></div></div>
         <div><div class="section-title" style="margin-top:0">Conflitos (${conflicts.length})</div>
