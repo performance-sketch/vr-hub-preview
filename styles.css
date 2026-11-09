@@ -118,6 +118,10 @@ textarea.input { min-height: 64px; resize: vertical; }
 .board-head { display: flex; align-items: center; gap: 12px; padding: 18px 24px; }
 .board-head h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: .01em; text-transform: uppercase; }
 .board-head svg.i { width: 34px; height: 34px; stroke-width: 1.6; }
+.board-edit { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; background: #f5c400; color: #000; font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 999px; transition: filter .2s; }
+.board-edit:hover { filter: brightness(1.08); }
+.board-edit:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.board-head .board-edit svg.i { width: 15px; height: 15px; stroke-width: 2.2; }
 .board-head .link { margin-left: auto; font-size: 13px; display: flex; gap: 6px; align-items: center; }
 .board table { width: calc(100% - 24px); margin: 0 12px 12px; border-collapse: collapse; }
 .board th { background: #262626; font-size: 14px; font-weight: 700; padding: 10px; border-right: 1px solid #000; }
@@ -379,6 +383,7 @@ body.tv .tv-main { min-height: calc(100vh - 64px); align-items: start; }
   .board-head { padding: 12px 14px; gap: 10px; }
   .board-head h2 { font-size: 16px; }
   .board-head svg.i { width: 22px; height: 22px; }
+  .board-edit { font-size: 12px; padding: 6px 11px; }
   .board table, .board tbody { display: block; width: auto; margin: 0 8px 8px; }
   .board thead { display: none; }
   .board tr { display: grid; grid-template-columns: auto 16px minmax(0, 1fr) auto auto; grid-template-areas: "h d v s a" "h d p s a"; align-items: center; column-gap: 10px; padding: 7px 8px; border-top: 1px solid #1f1f1f; }
