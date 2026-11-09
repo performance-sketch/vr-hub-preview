@@ -1,0 +1,43 @@
+<!doctype html><html lang="pt-BR"><head><meta name="robots" content="noindex, nofollow"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#fbfbfd"><title>Vertical Rio Hub</title>
+<link rel="stylesheet" href="assets/base.css">
+<style>
+/* responsivo: celular, tablet, notebook e TV (tamanhos fluidos com clamp) */
+html,body{width:auto;height:auto;min-height:100vh;min-height:100dvh;overflow-x:hidden;overflow-y:auto}
+body{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+main{max-width:1440px;margin:0 auto;padding:clamp(24px,6vw,90px) max(clamp(16px,4vw,60px),env(safe-area-inset-right)) max(clamp(32px,6vw,90px),env(safe-area-inset-bottom)) max(clamp(16px,4vw,60px),env(safe-area-inset-left));animation:entra .6s ease}
+.topo{display:flex;align-items:center;justify-content:space-between;gap:12px 20px;flex-wrap:wrap}.placa-logo{padding:0;background:none}.placa-logo img{height:clamp(34px,4vw,52px)}
+.data{font-size:clamp(14px,1.6vw,20px);color:var(--suave);font-weight:500}
+h1{font-size:clamp(28px,4.4vw,48px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin:clamp(28px,4vw,56px) 0 10px;display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px}
+.selo{font-size:clamp(11px,1.2vw,14px);background:#fdf6d8;color:#8a6d00;padding:5px 12px;border-radius:999px;letter-spacing:.1em;font-weight:700;white-space:nowrap}
+.sub{font-size:clamp(15px,1.6vw,19px);line-height:1.4;color:var(--suave);margin-bottom:clamp(24px,3vw,40px)}
+.grade{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(10px,1.4vw,16px)}
+a.card{display:flex;align-items:center;gap:14px;min-width:0;text-decoration:none;color:inherit;background:#fff;border-radius:18px;padding:16px 18px;box-shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);transition:transform .2s ease,box-shadow .2s ease;touch-action:manipulation}
+@media (hover:hover){a.card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(0,0,0,.05),0 12px 30px rgba(0,0,0,.08)}a.card:hover .seta{transform:translateX(3px);color:var(--tinta)}}
+a.card:active{transform:scale(.985)}
+a.card:focus-visible{outline:3px solid #f5c400;outline-offset:3px}
+.ico{flex:none;width:44px;height:44px;border-radius:12px;background:var(--card);display:grid;place-items:center}
+.ico svg{width:22px;height:22px;fill:none;stroke:var(--tinta);stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.txt{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.txt b{font-size:16px;font-weight:600;letter-spacing:-.01em}
+.txt small{font-size:13px;color:#6e6e73;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cad{flex:none;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;background:#fdf6d8;color:#8a6d00;padding:3px 8px;border-radius:999px}
+.seta{flex:none;font-size:22px;line-height:1;color:#c7c7cc;transition:transform .2s,color .2s}
+@media (max-width:980px){.grade{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.grade{grid-template-columns:1fr}.txt small{white-space:normal}}
+</style></head><body><div style="position:sticky;top:0;z-index:99998;background:#f5c400;color:#231F20;font:700 13px system-ui;text-align:center;padding:6px;letter-spacing:.08em">PRÉVIA NO GITHUB · dados do ambiente de testes</div><main>
+<div class="topo"><a class="placa-logo" href="index.html" title="Menu principal"><img src="assets/logo_vertical_rio.svg" alt="Vertical Rio"></a><div class="data" id="dt"></div></div>
+<h1>Vertical Rio Hub <span class="selo">ÁREA DE TESTES</span></h1><div class="sub">Telas internas e de sala de espera. Os voos do dia vêm da Programação.</div>
+<div class="grade">
+<a class="card" href="tv_sala_espera.html"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M10 18h4"/></svg></span><span class="txt"><b>Painel de Status</b><small>TV da Sala de Espera</small></span><span class="seta" aria-hidden="true">›</span></a>
+<a class="card" href="central_avisos.html"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg></span><span class="txt"><b>Central de Avisos</b><small>Chamada de passageiros por voz</small></span><span class="seta" aria-hidden="true">›</span></a>
+<a class="card" href="ops/#/dashboard"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span><span class="txt"><b>Dashboard</b><small>Voos, escala e totais do dia</small></span><span class="seta" aria-hidden="true">›</span></a>
+<a class="card" href="ops/#/programacao"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M7 13h4M7 17h7"/></svg></span><span class="txt"><b>Programação</b><small>Cadastro de voos, PAX e status</small></span><span class="seta" aria-hidden="true">›</span></a>
+<a class="card" href="ops/#/voos"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><span class="txt"><b>Voos</b><small>Resultados e horas por ciclo</small></span><span class="seta" aria-hidden="true">›</span></a>
+<a class="card" href="ops/#/escala"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.2a5 5 0 0 1 6 4.8"/></svg></span><span class="txt"><b>Escala</b><small>Escala mensal e diária da equipe</small></span><span class="seta" aria-hidden="true">›</span></a>
+<a class="card" href="ops/#/cameras"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-2.5h6L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg></span><span class="txt"><b>Câmeras</b><small>Vendas e comissão de GoPro e 360°</small></span><span class="seta" aria-hidden="true">›</span></a>
+<a class="card" href="ops/#/historico"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></span><span class="txt"><b>Histórico</b><small>Quem alterou o quê e quando</small></span><span class="cad" title="Acesso restrito">Restrito</span><span class="seta" aria-hidden="true">›</span></a>
+<a class="card" href="ops/#/operadores"><span class="ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l3 3M14 9l2 2"/></svg></span><span class="txt"><b>Operadores</b><small>Logins, senhas e permissões</small></span><span class="cad" title="Acesso restrito">Restrito</span><span class="seta" aria-hidden="true">›</span></a>
+</div></main>
+<script>// sempre a versao mais nova (o GitHub Pages guarda cache por 10 min)
+var _t=Date.now();document.write('<script src="assets/manual.js?t='+_t+'"><\/script><script src="assets/dados.js?t='+_t+'"><\/script>')</script>
+<script>document.getElementById('dt').textContent=dataLonga();marcaOrigem(['Pulseira: cor atribuída em rodízio pelo hub','Código do voo (VR101, VR102…): gerado pelo hub, a Rezdy só tem horário e produto','Status do voo: automático pelo horário + ajuste manual no iPad','Clima (condição, vento, visibilidade, previsão da semana)','Taxas de plataforma e cartão: % fixo estimado (6,5% + 3,2%)','Horas voadas: estimadas pela duração do produto, não pelo tempo real de voo']);</script></body></html>

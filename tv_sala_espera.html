@@ -1,0 +1,198 @@
+<!doctype html><html lang="pt-BR"><head><meta name="robots" content="noindex, nofollow"><meta charset="utf-8"><title>Vertical Rio Hub | TV Sala de Espera</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="assets/base.css">
+<style>
+/* TV vertical 9:16 (1080x1920): encaixa em qualquer janela mantendo a proporção */
+html,body{width:1080px;height:1920px;overflow:hidden}
+body{background:radial-gradient(1200px 1000px at 50% 0%,#1c1c20 0%,#0e0e10 60%);color:#f5f5f7}
+header{height:250px;padding:56px 64px 0;display:flex;justify-content:space-between;align-items:flex-start}
+.placa-logo{background:transparent;padding:0}.placa-logo img{height:56px;filter:brightness(0) invert(1)}
+.tit{font-size:30px;font-weight:600;letter-spacing:.24em;color:#86868b;margin-top:26px}
+.tit b{display:block;font-size:68px;letter-spacing:.02em;color:#f5f5f7;font-weight:700;margin-top:6px}
+.dir{text-align:right}
+.relogio{font-size:96px;font-weight:300;font-variant-numeric:tabular-nums;line-height:1}
+.idi{margin-top:16px;font-size:22px;font-weight:600;letter-spacing:.14em;color:#6e6e73}.idi b{background:rgba(245,196,0,.16);color:#f5c400;padding:4px 12px;border-radius:999px}
+.cab{display:grid;grid-template-columns:230px 1fr 250px;padding:0 64px;height:64px;align-items:center;font-size:20px;font-weight:600;letter-spacing:.18em;color:#6e6e73;border-bottom:1px solid rgba(255,255,255,.08);margin-top:20px}
+.cab span:last-child{text-align:right}
+#lista{position:absolute;top:334px;left:0;right:0;bottom:150px;padding:18px 40px 0;display:flex;flex-direction:column;gap:16px}
+.voo{flex:1;max-height:270px;min-height:0;display:grid;grid-template-columns:230px 1fr 250px;align-items:center;padding:0 24px;border-radius:28px;background:rgba(255,255,255,.045);position:relative;transition:background .4s,transform .4s;animation:entra .5s ease both}
+.voo .hora{font-size:92px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+.voo.compacto .hora{font-size:64px}
+.voo .prod{font-size:44px;font-weight:600;line-height:1.1}
+.voo.compacto .prod{font-size:32px}
+.voo .meta{display:flex;align-items:center;gap:18px;margin-top:12px;font-size:28px;color:#a1a1a6;font-weight:500;white-space:nowrap}
+.voo.compacto .meta{font-size:22px;margin-top:6px}
+.voo .meta .bl{width:62px;height:36px;border-radius:10px;display:inline-block;flex:none}
+.voo.compacto .meta .bl{width:46px;height:26px}
+.voo .cod{font-variant-numeric:tabular-nums;color:#d8d4d0}
+.st{justify-self:end;font-size:30px;font-weight:700;letter-spacing:.06em;padding:14px 26px;border-radius:999px;background:rgba(255,255,255,.06);text-align:center;min-width:230px}
+.voo.compacto .st{font-size:22px;padding:10px 18px;min-width:190px}
+.voo.cancel .hora,.voo.cancel .prod{text-decoration:line-through;opacity:.55}
+.voo.destaque{background:rgba(245,196,0,.18);box-shadow:0 0 0 4px #f5c400 inset;animation:pulsa 1s ease-in-out infinite}
+@keyframes pulsa{50%{background:rgba(245,196,0,.32)}}
+.vazio{margin:auto;text-align:center;color:#86868b;font-size:44px;font-weight:600;letter-spacing:.08em}
+.vazio small{display:block;font-size:26px;font-weight:500;margin-top:16px;letter-spacing:.02em}
+.rodape{position:absolute;bottom:0;left:0;right:0;height:150px;display:flex;align-items:center;justify-content:space-between;padding:0 64px;border-top:1px solid rgba(255,255,255,.06);font-size:30px;color:#a1a1a6}
+.rodape .bls{display:flex;gap:10px}.rodape .bls i{width:44px;height:26px;border-radius:8px;display:block}
+.offline{position:absolute;top:262px;right:64px;font-size:18px;color:#ff9f0a;letter-spacing:.08em}
+/* anúncio da Central de Avisos */
+#alerta{position:absolute;left:40px;right:40px;top:300px;border-radius:40px;padding:56px 60px;background:#f5c400;color:#141213;box-shadow:0 40px 120px rgba(0,0,0,.6);transform:translateY(-40px) scale(.96);opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;z-index:20}
+#alerta.on{opacity:1;transform:none;animation:pisca .5s ease-in-out 4 alternate}
+@keyframes pisca{to{background:#ffd84d}}
+#alerta .k{font-size:34px;font-weight:800;letter-spacing:.3em}
+#alerta .v{font-size:120px;font-weight:800;letter-spacing:-.02em;line-height:1.05;margin-top:16px}
+#alerta .t{font-size:64px;font-weight:700;margin-top:8px}
+#alerta .s{font-size:40px;font-weight:600;margin-top:18px;display:flex;align-items:center;gap:20px}
+#alerta .s i{width:80px;height:46px;border-radius:12px;display:inline-block;box-shadow:inset 0 0 0 3px rgba(0,0,0,.25)}
+#alerta .tr{margin-top:26px;font-size:30px;font-weight:600;opacity:.75;line-height:1.4}
+#alerta .txt{margin-top:18px;font-size:32px;font-weight:500}
+body.flash::after{content:"";position:fixed;inset:0;box-shadow:inset 0 0 0 18px #f5c400;pointer-events:none;animation:borda .5s ease-in-out 10 alternate;z-index:19}
+@keyframes borda{to{box-shadow:inset 0 0 0 6px rgba(245,196,0,.3)}}
+.amostra{color:#f5f5f7}
+/* observação do voo (Programação → "Mostrar no Painel de Status") */
+.voo .obs{margin-top:12px;font-size:32px;line-height:1.25;font-weight:600;color:#f5c400;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.voo.compacto .obs{font-size:26px;line-height:1.2;margin-top:6px;-webkit-line-clamp:2}
+.claro .voo .obs{color:#8a6d00}
+/* troca de idioma suave: o texto some (fade), troca e volta; os cards não piscam */
+#tit,.cab,#rod,#lista .prod,#lista .st,#lista .meta{transition:opacity .5s ease}
+body.trocando #tit,body.trocando .cab,body.trocando #rod,body.trocando #lista .prod,body.trocando #lista .st,body.trocando #lista .meta{opacity:0}
+.sem-anim .voo:not(.destaque){animation:none}
+/* modo claro (botão "Modo claro/escuro", tecla T ou ?tema=claro) */
+body.claro{background:radial-gradient(1200px 1000px at 50% 0%,#ffffff 0%,#eceef2 60%);color:#1d1d1f}
+.claro .placa-logo img{filter:none}
+.claro .tit{color:#6e6e73}.claro .tit b{color:#1d1d1f}
+.claro .idi{color:#86868b}.claro .idi b{background:rgba(245,196,0,.28);color:#7a5f00}
+.claro .cab{color:#86868b;border-bottom-color:rgba(0,0,0,.08)}
+.claro .voo{background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.06)}
+.claro .voo .meta{color:#6e6e73}.claro .voo .cod{color:#3a3a3c}
+.claro .voo .meta .bl,.claro .rodape .bls i{box-shadow:inset 0 0 0 2px rgba(0,0,0,.14)}
+/* .claro .st: cores sólidas padronizadas (3.5), sem filtro */
+.claro .voo.destaque{background:rgba(245,196,0,.22)}
+.claro .vazio{color:#86868b}
+.claro .rodape{border-top-color:rgba(0,0,0,.08);color:#6e6e73}
+.claro .amostra{color:#1d1d1f}
+</style></head><body>
+<header>
+  <div><a class="placa-logo" href="index.html" title="Menu principal"><img src="assets/logo_vertical_rio.svg" alt="Vertical Rio"></a><div class="tit" id="tit"></div></div>
+  <div class="dir"><div class="relogio" id="rel">00:00</div><div class="idi" id="idi"></div></div>
+</header>
+<div class="offline" id="off" hidden>SEM CONEXÃO · MOSTRANDO ÚLTIMOS DADOS</div>
+<div class="cab"><span id="hH"></span><span id="hV"></span><span id="hS"></span></div>
+<div id="lista"></div>
+<div id="alerta" aria-live="assertive"></div>
+<div class="rodape"><span id="rod"></span><span class="bls" id="bls"></span></div>
+<div class="amostra">AO VIVO · PROGRAMAÇÃO</div>
+<script src="assets/ops.js?v=20261104c"></script>
+<script>
+const P=new URLSearchParams(location.search), param=k=>P.get(k);
+// encaixa a tela 1080x1920 na janela (?captura=1 mantém o tamanho original)
+(function(){if(param('captura'))return;const b=document.body,h=document.documentElement;h.style.width='100vw';h.style.height='100vh';h.style.overflow='hidden';b.style.transformOrigin='0 0';
+ // giro da tela (0/90/180/270), salvo neste aparelho; ?girar=180 na URL também funciona
+ let giro=0;try{giro=+(param('girar')??localStorage.getItem('vr_tv_giro')??0)||0}catch(e){giro=+param('girar')||0}
+ giro=((giro%360)+360)%360;if(giro%90)giro=0;
+ const fit=()=>{const deitado=giro%180!==0,W=innerWidth,H=innerHeight;
+  const s=deitado?Math.min(W/1920,H/1080):Math.min(W/1080,H/1920);
+  b.style.transform=`translate(${W/2}px,${H/2}px) rotate(${giro}deg) scale(${s}) translate(-540px,-960px)`};
+ fit();addEventListener('resize',fit);
+ // botão discreto: aparece ao mexer o mouse ou tocar na tela e some depois de 4 s; tecla G também gira
+ const ESTILO='display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:50%;background:rgba(128,128,128,.16);color:inherit;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:background .2s,opacity .2s';
+ const caixa=document.createElement('div');caixa.setAttribute('style','position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:99;display:flex;gap:8px;color:#f5f5f7;transition:opacity .4s;opacity:0;pointer-events:none');
+ const bt=document.createElement('button');bt.type='button';bt.id='girar';bt.title='Girar a tela (tecla G)';bt.setAttribute('aria-label','Girar a tela');bt.setAttribute('style',ESTILO);
+ bt.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>';
+ const bm=document.createElement('button');bm.type='button';bm.id='tema';bm.title='Modo claro / escuro (tecla T)';bm.setAttribute('style',ESTILO);
+ bm.innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+ caixa.appendChild(bm);caixa.appendChild(bt);h.appendChild(caixa);
+ const rot=()=>{bt.title='Girar a tela · agora '+giro+'° (tecla G)'};rot();
+ // tema salvo neste aparelho; ?tema=claro|escuro na URL também funciona
+ let claro=false;try{claro=(param('tema')??localStorage.getItem('vr_tv_tema'))==='claro'}catch(e){claro=param('tema')==='claro'}
+ const aplicaTema=()=>{b.classList.toggle('claro',claro);caixa.style.color=claro?'#1d1d1f':'#f5f5f7';bm.title=(claro?'Modo escuro':'Modo claro')+' (tecla T)';bm.setAttribute('aria-label',claro?'Mudar para o modo escuro':'Mudar para o modo claro')};aplicaTema();
+ let tm;const mostra=()=>{caixa.style.opacity='.6';caixa.style.pointerEvents='auto';clearTimeout(tm);tm=setTimeout(()=>{caixa.style.opacity='0';caixa.style.pointerEvents='none'},4000)};
+ const gira=()=>{giro=(giro+90)%360;try{localStorage.setItem('vr_tv_giro',giro)}catch(e){}fit();rot();mostra()};
+ const trocaTema=()=>{claro=!claro;try{localStorage.setItem('vr_tv_tema',claro?'claro':'escuro')}catch(e){}aplicaTema();mostra()};
+ bt.onclick=gira;bm.onclick=trocaTema;caixa.onmouseenter=()=>{caixa.style.opacity='1'};addEventListener('mousemove',mostra);addEventListener('touchstart',mostra,{passive:true});
+ addEventListener('keydown',e=>{if(e.key==='g'||e.key==='G')gira();if(e.key==='t'||e.key==='T')trocaTema()});
+})();
+
+// idiomas: rodízio a cada IDIOMA_SEG (?idioma_seg=N); fixe com ?idioma=pt|en|es
+const IDIOMAS=['pt','en','es'], IDIOMA_SEG=Math.max(2,+param('idioma_seg')||6);
+let lang=IDIOMAS.includes(param('idioma'))?param('idioma'):'pt';
+const TX={
+ pt:{tit:'PARTIDAS',sub:'Próximos voos',h:['HORÁRIO','VOO','STATUS'],pax:'PAX',pul:'pulseira',rod:'Confira a cor da sua pulseira.',nada:'SEM MAIS VOOS HOJE',nadaSub:'Obrigado por voar com a Vertical Rio',
+  st:{CONFIRMADO:'CONFIRMADO',EMBARCANDO:'EMBARCANDO',VOANDO:'VOANDO',ATRASADO:'ATRASADO'},
+  cor:{BRANCA:'Branca',PRETA:'Preta',AMARELA:'Amarela',VERDE:'Verde',AZUL:'Azul'}},
+ en:{tit:'DEPARTURES',sub:'Next flights',h:['TIME','FLIGHT','STATUS'],pax:'PAX',pul:'wristband',rod:'Check your wristband color.',nada:'NO MORE FLIGHTS TODAY',nadaSub:'Thank you for flying with Vertical Rio',
+  st:{CONFIRMADO:'CONFIRMED',EMBARCANDO:'BOARDING',VOANDO:'IN FLIGHT',ATRASADO:'DELAYED'},
+  cor:{BRANCA:'White',PRETA:'Black',AMARELA:'Yellow',VERDE:'Green',AZUL:'Blue'}},
+ es:{tit:'SALIDAS',sub:'Próximos vuelos',h:['HORA','VUELO','ESTADO'],pax:'PAX',pul:'pulsera',rod:'Verifique el color de su pulsera.',nada:'NO HAY MÁS VUELOS HOY',nadaSub:'Gracias por volar con Vertical Rio',
+  st:{CONFIRMADO:'CONFIRMADO',EMBARCANDO:'EMBARCANDO',VOANDO:'EN VUELO',ATRASADO:'RETRASADO'},
+  cor:{BRANCA:'Blanca',PRETA:'Negra',AMARELA:'Amarilla',VERDE:'Verde',AZUL:'Azul'}}};
+const PROD={pt:{DOORS_OFF_30:'Doors Off 30 min',DOORS_OFF_45:'Doors Off 45 min',DOORS_ON_30:'Doors On 30 min'},en:{DOORS_OFF_30:'Doors Off 30 min',DOORS_OFF_45:'Doors Off 45 min',DOORS_ON_30:'Doors On 30 min'},es:{DOORS_OFF_30:'Doors Off 30 min',DOORS_OFF_45:'Doors Off 45 min',DOORS_ON_30:'Doors On 30 min'}};
+const AVISO={embarque:['EMBARQUE','Embarque autorizado','Boarding now','Embarque autorizado'],ultima:['ÚLTIMA CHAMADA','Última chamada','Final call','Última llamada'],checkin:['CHECK-IN','Check-in aberto','Check-in open','Check-in abierto'],atraso:['ATRASO','Voo atrasado','Flight delayed','Vuelo retrasado'],cancelado:['CANCELAMENTO','Voo cancelado','Flight cancelled','Vuelo cancelado'],geral:['AVISO','Aviso','Notice','Aviso'],inicio5:['INÍCIO EM 5 MIN','Início em 5 minutos','Starting in 5 minutes','Comienza en 5 minutos']};
+
+const agoraMin=()=>{if(param('hora')){const[a,b]=param('hora').split(':').map(Number);return a*60+b}const p=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());return +p.find(x=>x.type==='hour').value*60+ +p.find(x=>x.type==='minute').value};
+const hm=s=>{const[a,b]=s.split(':').map(Number);return a*60+b};
+const relogio=()=>{const m=agoraMin();document.getElementById('rel').textContent=String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+let destaque=null;
+// comentários traduzidos automaticamente (servidor /api/traduzir); enquanto não chega, mostra o original
+const TRAD={};
+function obsIdioma(txt){
+ const k=String(txt).trim(); if(lang==='pt'||!k) return k;
+ if(!TRAD[k]){TRAD[k]={pendente:true};fetch(OPS_API+'/traduzir?q='+encodeURIComponent(k)).then(r=>r.json()).then(j=>{TRAD[k]=j;render()}).catch(()=>{TRAD[k]={};setTimeout(()=>{delete TRAD[k]},60e3)})}
+ return TRAD[k][lang]||k;
+}
+
+// próximos voos: ordenados pelo horário; finalizados saem; cancelados ficam até 30 min depois do horário
+// 3.6: a TV só mostra CONFIRMADO, EMBARCANDO, VOANDO e ATRASADO; FINALIZADO, CANCELADO e A CONFIRMAR são só internos
+function proximos(){return OPS.voos.filter(v=>OPS_STATUS_TV.includes(v.status)).sort((a,b)=>a.hora.localeCompare(b.hora))}
+function render(){
+ const t=TX[lang],n=Math.max(1,Math.min(12,+param('voos')||OPS.config.tvVoos||6));
+ document.getElementById('tit').innerHTML=`<b>${t.sub}</b>`; // sem o rótulo PARTIDAS/DEPARTURES/SALIDAS
+ ['hH','hV','hS'].forEach((id,i)=>document.getElementById(id).textContent=t.h[i]);
+ document.getElementById('idi').innerHTML=IDIOMAS.map(l=>l===lang?`<b>${l.toUpperCase()}</b>`:l.toUpperCase()).join(' · ');
+ document.getElementById('rod').textContent=t.rod;
+ document.getElementById('bls').innerHTML=Object.values(OPS_PULSEIRAS).map(c=>`<i style="background:${c}"></i>`).join('');
+ document.getElementById('off').hidden=!OPS.erro;
+ const vs=proximos().slice(0,n),el=document.getElementById('lista');
+ if(!vs.length){el.innerHTML=`<div class="vazio">${OPS.ok||OPS.erro?t.nada:'…'}<small>${OPS.ok?t.nadaSub:''}</small></div>`;return}
+ const comp=n>5?' compacto':'';
+ el.innerHTML=vs.map(v=>`<div class="voo${comp}${v.status==='CANCELADO'?' cancel':''}${destaque===v.id?' destaque':''}">
+   <div class="hora">${v.hora}</div>
+   <div><div class="prod">${PROD[lang][v.produto]||v.produtoNome}${v.tipo==='PRIVADO'?' · '+({pt:'Privativo',en:'Private',es:'Privado'})[lang]:''}</div>
+     <div class="meta"><span class="bl" style="background:${OPS_PULSEIRAS[v.pulseira]};${v.pulseira==='PRETA'?'box-shadow:0 0 0 2px rgba(255,255,255,.35)':''}"></span><span>${t.cor[v.pulseira]}</span></div>${v.obsTv&&v.obs?`<div class="obs">${opsEsc(obsIdioma(v.obs))}</div>`:''}</div>
+   ${OPS_STATUS_TV.includes(v.status)?`<div class="st" style="color:${OPS_TXT_STATUS[v.status]};background:${OPS_COR_STATUS[v.status]}">${t.st[v.status]}</div>`:'<div></div>'}</div>`).join('');
+}
+
+// anúncios: cada aviso novo pisca a tela e destaca o voo por 5 s, depois volta ao normal
+const vistos=new Set();let primeira=true,fila=[],mostrando=false;
+function novosAvisos(){
+ const limite=Date.now()-2*60e3;
+ (OPS.avisos||[]).forEach(a=>{if(vistos.has(a.id))return;vistos.add(a.id);if(!primeira&&new Date(a.em).getTime()>limite)fila.push(a)});
+ primeira=false;if(!mostrando)proximoAviso();
+}
+function proximoAviso(){
+ let a=fila.shift();if(!a){mostrando=false;return}mostrando=true;
+ // "Início em 5 minutos" chega como aviso geral com texto "Início em 5 minutos · Sala N"
+ if(a.tipo==='geral'&&/^Início em 5 minutos/.test(a.texto||''))a={...a,tipo:'inicio5',texto:String(a.texto).replace(/^Início em 5 minutos\s*·?\s*/,'')};
+ const tx=AVISO[a.tipo]||AVISO.geral,v=OPS.voos.find(x=>x.id===a.vooId),al=document.getElementById('alerta');
+ al.innerHTML=`<div class="k">${tx[0]}</div>${a.codigo?`<div class="v">Voo ${opsEsc(a.codigo)}</div>`:''}<div class="t">${tx[1]}</div>
+  ${a.sub?`<div class="s">${a.pulseira?`<i style="background:${OPS_PULSEIRAS[a.pulseira]}"></i>`:''}${opsEsc(a.sub)}${a.pulseira?` · pulseira ${TX.pt.cor[a.pulseira].toLowerCase()}`:''}</div>`:''}
+  <div class="tr">${tx[2]}${a.codigo?' · Flight '+opsEsc(a.codigo):''}<br>${tx[3]}${a.codigo?' · Vuelo '+opsEsc(a.codigo):''}</div>${a.texto?`<div class="txt">${opsEsc(a.texto)}</div>`:''}`;
+ destaque=v?v.id:null;render();
+ document.body.classList.add('flash');al.classList.add('on');
+ const ini=Date.now(),fecha=()=>{al.classList.remove('on');document.body.classList.remove('flash');destaque=null;render();setTimeout(proximoAviso,600)};
+ const espera=()=>{const atual=(OPS.avisos||[]).find(x=>x.id===a.id)||a,dt=Date.now()-ini;
+  if(dt>=180e3||(dt>=5000&&(!a.fala||atual.fim)))fecha();else setTimeout(espera,500)};
+ setTimeout(espera,5000);
+}
+
+relogio();setInterval(relogio,1000);
+opsAcompanhar(()=>{render();novosAvisos()},+param('seg')||4);
+function trocaIdioma(){ // fade out (0,5 s) → troca o texto → fade in
+ const b=document.body;b.classList.add('trocando');
+ setTimeout(()=>{if(mostrando){b.classList.remove('trocando');return}
+  lang=IDIOMAS[(IDIOMAS.indexOf(lang)+1)%3];document.getElementById('lista').classList.add('sem-anim');render();
+  requestAnimationFrame(()=>requestAnimationFrame(()=>b.classList.remove('trocando')))},500)}
+setInterval(()=>{if(!param('idioma')&&!mostrando)trocaIdioma()},IDIOMA_SEG*1000);
+setInterval(()=>{if(!mostrando)render()},30000); // tira da lista os cancelados antigos sem esperar mudança no servidor
+render();
+</script></body></html>
