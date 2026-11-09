@@ -8,7 +8,7 @@
   const PRODUTOS = { DOORS_OFF_30: 'Doors Off 30 min', DOORS_OFF_45: 'Doors Off 45 min', DOORS_ON_30: 'Doors On 30 min' };
   const PROD_CURTO = { DOORS_OFF_30: 'DOORS OFF 30', DOORS_OFF_45: 'DOORS OFF 45', DOORS_ON_30: 'DOORS ON 30' };
   const PROD_MIN = { DOORS_OFF_30: 30, DOORS_OFF_45: 45, DOORS_ON_30: 30 };
-  const TIPOS_LOG = { cadastro: 'Cadastro', alteracao: 'Alteração', status: 'Status', horario: 'Horário', pax: 'PAX', pulseira: 'Pulseira', exclusao: 'Exclusão', aviso: 'Aviso', config: 'Configuração' };
+  const TIPOS_LOG = { cadastro: 'Cadastro', alteracao: 'Alteração', status: 'Status', horario: 'Horário', pax: 'PAX', pulseira: 'Pulseira', exclusao: 'Exclusão', aviso: 'Aviso', config: 'Configuração', registro: 'Registro de voos' };
   const SETORES = { gestao: 'Gestão', coordenacao: 'Coordenação do Terminal', operacao: 'Operação', vendas: 'Vendas' };
   const SETOR_ORDER = ['gestao', 'coordenacao', 'operacao', 'vendas'];
   const ESC = { T: 'Trabalho', F: 'Folga', V: 'Férias', M: 'Dispensa médica' };
@@ -80,7 +80,9 @@
   // ---------- Servidor de operação (voos, PAX, avisos, log) ----------
   const API = 'https://vr-hub-teste.netlify.app/api';
   const TOKEN_KEY = 'vro-op-token';
-  const OPS = { date: null, rev: -1, voos: [], config: { tvVoos: 6 }, avisos: [], operador: null, erro: null, carregando: false };
+  const OPS = { date: null, rev: -1, voos: [], config: { tvVoos: 6 }, avisos: [], operador: null, erro: null, carregando: false, registros: null };
+  // voos dos últimos 6 ciclos: as horas de cada dia saem dos voos FINALIZADOS (todos os usuários veem o mesmo)
+  const VOOS_CICLOS = { de: null, rev: -2, voos: [], carregando: false };
   const token = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
   async function api(path, opts = {}) {
     const h = { 'Content-Type': 'application/json' }; const t = token(); if (t) h.Authorization = `Bearer ${t}`;
@@ -99,12 +101,34 @@
       OPS.erro = null;
       if (d.igual) return false;
       Object.assign(OPS, { date, rev: d.rev, voos: d.voos, config: d.config, avisos: d.avisos, operador: d.operador, hoje: d.hoje });
+      if (d.registros !== undefined) OPS.registros = d.registros;
+      importarRegistros();
       return true;
     } catch (e) { OPS.erro = e.message; if (!same) Object.assign(OPS, { date, voos: [], rev: -1 }); return true; } finally { OPS.carregando = false; }
   }
+  async function loadCiclos(force) {
+    const de = shiftCycle(cycleOf(today()), -5).start;
+    if (VOOS_CICLOS.carregando || (!force && VOOS_CICLOS.de === de && VOOS_CICLOS.rev === OPS.rev)) return false;
+    VOOS_CICLOS.carregando = true;
+    try {
+      const d = await api(`/estado?de=${de}&ate=${today()}`);
+      Object.assign(VOOS_CICLOS, { de, rev: d.rev, voos: d.voos });
+      if (d.registros !== undefined) OPS.registros = d.registros;
+      return true;
+    } catch (e) { return false; } finally { VOOS_CICLOS.carregando = false; }
+  }
+  // uma vez só: se o servidor ainda não tem os registros da tela Voos, o primeiro administrador leva os deste navegador
+  let importando = false;
+  function importarRegistros() {
+    if (importando || OPS.registros !== null || !OPS.operador || !OPS.operador.admin || !DB || !DB.registros || !DB.registros.length) return;
+    importando = true;
+    api('/acao', { method: 'POST', body: JSON.stringify({ tipo: 'registros_importar', registros: DB.registros }) })
+      .then(r => { if (r.resultado && r.resultado.importados) toast(`${r.resultado.importados} registros de voos enviados para o servidor`); return loadCiclos(true); })
+      .then(() => render()).catch(() => { importando = false; });
+  }
   async function acaoOps(body, okMsg) {
     if (!OPS.operador) { loginModal(() => acaoOps(body, okMsg)); return null; }
-    try { const r = await api('/acao', { method: 'POST', body: JSON.stringify(body) }); if (okMsg) toast(okMsg); await loadOps(OPS.date, true); render(); return r; }
+    try { const r = await api('/acao', { method: 'POST', body: JSON.stringify(body) }); if (okMsg) toast(okMsg); await loadOps(OPS.date, true); await loadCiclos(true); render(); return r; }
     catch (e) { if (e.status === 401) loginModal(() => acaoOps(body, okMsg)); else toast(e.message); return null; }
   }
   function loginModal(then) {
@@ -167,24 +191,33 @@
   // ---------- Cálculos ----------
   const regVoos = r => r.v30 + r.v45;
   const regMin = r => r.v30 * 30 + r.v45 * 45;
-  const regOf = s => DB.registros.find(r => r.date === s);
-
-  // Voos do dia: registro do dia; se hoje ainda não tem registro, usa os voos programados finalizados
-  function dayFlights(s, liveToday) {
-    const r = regOf(s);
-    if (r) return { voos: regVoos(r), min: regMin(r) };
-    if (liveToday && s === today() && OPS.date === s) {
-      const done = OPS.voos.filter(v => v.data === s && v.status === 'FINALIZADO');
-      return { voos: done.length, min: done.reduce((a, v) => a + vooMin(v), 0) };
-    }
-    return { voos: 0, min: 0 };
+  // registros manuais: do servidor (iguais para todos); enquanto o servidor não tem, os deste navegador
+  const regsManuais = () => (Array.isArray(OPS.registros) ? OPS.registros : DB.registros);
+  const regManual = s => regsManuais().find(r => r.date === s);
+  // dia AUTOMÁTICO: cada voo FINALIZADO soma o tempo do produto (Doors Off 30 = 30 min, Doors Off 45 = 45, Doors On 30 = 30)
+  function regAuto(s) {
+    const vs = VOOS_CICLOS.voos.filter(v => v.data === s && (v.status === 'FINALIZADO' || v.status === 'CANCELADO'));
+    if (!vs.length) return null;
+    const r = { date: s, v30: 0, v45: 0, priv: 0, doorsOn: 0, canc: 0, obs: '', auto: true };
+    vs.forEach(v => {
+      if (v.status === 'CANCELADO') { r.canc++; return; }
+      if (vooMin(v) === 45) r.v45++; else r.v30++;
+      if (v.tipo === 'PRIVADO') r.priv++;
+      if (v.produto === 'DOORS_ON_30') r.doorsOn++;
+    });
+    return r;
   }
-  function cycleTotals(c, liveToday) {
-    const regs = DB.registros.filter(r => r.date >= c.start && r.date <= c.end);
+  // o dia vale pelos voos da Programação; o registro manual fica para dias sem voos no sistema (histórico antigo)
+  const regOf = s => regAuto(s) || regManual(s);
+  function regsEntre(a, b) {
+    const out = []; for (let s = a; s <= b; s = addDays(s, 1)) { const r = regOf(s); if (r) out.push(r); }
+    return out;
+  }
+  function dayFlights(s) { const r = regOf(s); return r ? { voos: regVoos(r), min: regMin(r) } : { voos: 0, min: 0 }; }
+  function cycleTotals(c) {
+    const regs = regsEntre(c.start, c.end);
     const t = { voos: 0, min: 0, dias: regs.length, v30: 0, v45: 0, priv: 0, doorsOn: 0, canc: 0 };
     regs.forEach(r => { t.voos += regVoos(r); t.min += regMin(r); t.v30 += r.v30; t.v45 += r.v45; t.priv += r.priv; t.doorsOn += r.doorsOn; t.canc += r.canc; });
-    const td = today();
-    if (liveToday && td >= c.start && td <= c.end && !regOf(td)) { const f = dayFlights(td, true); t.voos += f.voos; t.min += f.min; }
     return t;
   }
   function opStatus(id, s) { return DB.escalaOp[s]?.[id]; }
@@ -303,7 +336,7 @@
       ${withFoot ? `<div class="board-foot"><a href="#/programacao">Cadastrar e editar voos →</a></div>` : ''}</div>`;
   }
   function totalsBox(s) {
-    const t = cycleTotals(cycleOf(s), true);
+    const t = cycleTotals(cycleOf(s));
     return `<div class="card totals">
       <div class="t">${icon('heli')}<div><div class="k">Total de voos do ciclo</div><div class="v">${t.voos} voos</div></div></div>
       <span class="bar"></span>
@@ -336,7 +369,7 @@
   // ---------- Dashboard ----------
   function pageDashboard() {
     const s = today(), c = cycleOf(s), days = cycleDays(c);
-    const evo = days.map(d => { const f = dayFlights(d, true); return { v: f.voos, tip: `${brShort(d)}: ${f.voos} voos` }; });
+    const evo = days.map(d => { const f = dayFlights(d); return { v: f.voos, tip: `${brShort(d)}: ${f.voos} voos` }; });
     const folgas = [];
     for (let i = 1; i < 14; i++) {
       const d = addDays(s, i);
@@ -395,7 +428,23 @@
     ];
   }
   let anuncio = null, audioCtx = null;
-  function gongo(ac, t, ex) { // duas notas suaves antes da fala
+  // aviso sonoro = a mesma marimba da Central de Avisos (brand/gongo_C.mp3); se não carregar, usa as duas notas
+  let gongoBytes = null, gongoBuf = null;
+  const baixaGongo = () => (gongoBytes = gongoBytes || fetch('brand/gongo_C.mp3').then(r => { if (!r.ok) throw new Error(); return r.arrayBuffer(); }));
+  async function gongoBuffer(ac) {
+    if (gongoBuf) return gongoBuf;
+    const ab = (await baixaGongo()).slice(0);
+    gongoBuf = await new Promise((ok, falha) => ac.decodeAudioData(ab, ok, falha));
+    return gongoBuf;
+  }
+  async function tocaGongo(ac, ex) { // toca já e devolve o instante em que termina
+    try {
+      const b = await gongoBuffer(ac), t = ac.currentTime + 0.05, s = ac.createBufferSource();
+      s.buffer = b; s.connect(ac.destination); s.start(t); ex.fontes.push(s);
+      return t + b.duration;
+    } catch (e) { return gongo(ac, ac.currentTime + 0.05, ex); }
+  }
+  function gongo(ac, t, ex) { // reserva: duas notas suaves
     [[659.25, 0], [523.25, 0.45]].forEach(([f, d]) => {
       const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.value = f;
       g.gain.setValueAtTime(0, t + d); g.gain.linearRampToValueAtTime(0.35, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + d + 1.4);
@@ -419,6 +468,8 @@
     if (!OPS.operador) { loginModal(() => anunciar(id)); return; }
     const ex = anuncio = { id, fontes: [], cancelado: false }; render();
     toast(`Voo ${v.codigo || v.hora}: ${a.nome}...`);
+    // 1º o aviso sonoro (na hora do toque), enquanto a voz é gerada; 2º o texto falado, depois que o som termina
+    const fimGongo = tocaGongo(audioCtx, ex);
     const pub = api('/acao', { method: 'POST', body: JSON.stringify({ tipo: 'aviso', id, aviso: a.aviso, texto: a.aviso === 'geral' ? textosChamada(v)[0] : '', fala: true }) })
       .then(r => { ex.avisoId = r && r.resultado && r.resultado.id; if (ex.terminou) fimAvisoSino(ex); return null; }, e => e);
     try {
@@ -427,7 +478,8 @@
         .then(ab => new Promise((ok, falha) => audioCtx.decodeAudioData(ab, ok, () => falha(new Error('Áudio inválido')))))));
       if (ex.cancelado) return;
       await audioCtx.resume();
-      let t = gongo(audioCtx, audioCtx.currentTime + 0.1, ex), ultima = null;
+      let t = Math.max(await fimGongo + 0.5, audioCtx.currentTime + 0.1), ultima = null;
+      if (ex.cancelado) return;
       bufs.forEach(b => { const s = audioCtx.createBufferSource(); s.buffer = b; s.connect(audioCtx.destination); s.start(t); t += b.duration + 0.7; ex.fontes.push(s); ultima = s; });
       ultima.onended = () => { fimAvisoSino(ex); if (anuncio === ex) { anuncio = null; render(); } };
     } catch (e) {
@@ -612,16 +664,16 @@
   // ---------- Voos ----------
   let voosCycle = cycleOf(today());
   function pageVoos() {
-    const c = voosCycle, t = cycleTotals(c, false), prev = cycleTotals(shiftCycle(c, -1), false);
+    const c = voosCycle, t = cycleTotals(c), prev = cycleTotals(shiftCycle(c, -1));
     const isCur = c.start === cycleOf(today()).start;
     const dv = t.voos - prev.voos, dm = t.min - prev.min;
     const sign = n => (n > 0 ? '+' : n < 0 ? '−' : '±');
     const days = cycleDays(c);
-    const regs = DB.registros.filter(r => r.date >= c.start && r.date <= c.end).sort((a, b) => b.date.localeCompare(a.date));
+    const regs = regsEntre(c.start, c.end).sort((a, b) => b.date.localeCompare(a.date));
     const six = [0, -1, -2, -3, -4, -5].map(n => shiftCycle(c, n));
-    const sixT = six.map(x => ({ c: x, t: cycleTotals(x, false) }));
+    const sixT = six.map(x => ({ c: x, t: cycleTotals(x) }));
     const stat = (l, v, sub) => `<div class="card pad stat"><div class="label">${l}</div><div class="value">${v}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
-    return `<div class="page-head"><div><h1>Controle de voos</h1><p>Registro diário. Privados e Doors On são classificações e não somam ao total.</p></div>
+    return `<div class="page-head"><div><h1>Controle de voos</h1><p>Cada voo marcado como FINALIZADO na Programação soma o tempo do produto (30 ou 45 min), na hora, para todos. Privados e Doors On são classificações e não somam ao total.</p></div>
         <button class="btn primary" id="newDay">${icon('plus')} Registrar dia</button></div>
       <div class="period"><button class="icon-btn ghost" data-cy="-1">${icon('left')}</button><div class="mid">Ciclo ${cycleLabel(c)}<small>${isCur ? 'Ciclo atual' : 'Ciclo selecionado'}</small></div><button class="icon-btn ghost" data-cy="1">${icon('right')}</button></div>
       <div class="section-title">Totais do ciclo</div>
@@ -636,11 +688,12 @@
         ${bars(days.map(d => { const r = regOf(d); const m = r ? regMin(r) : 0; return { v: m, tip: `${brShort(d)}: ${hhmm(m)}h` }; }), cycleAxis(days))}</div>
       <div class="section-title">Registros</div>
       ${regs.length ? `<div class="list">${regs.map(r => `<div class="item"><div class="grow"><div class="title">${longDate(r.date)}</div>
-          <div class="meta">30min: ${r.v30} · 45min: ${r.v45} · Privados: ${r.priv} · Doors On: ${r.doorsOn} · Cancelados: ${r.canc}${r.obs ? ` · ${esc(r.obs)}` : ''}</div></div>
+          <div class="meta">${r.auto ? '<span class="badge st-CONFIRMADO" style="margin-right:6px">Automático</span>' : '<span class="badge" style="margin-right:6px">Manual</span>'}30min: ${r.v30} · 45min: ${r.v45} · Privados: ${r.priv} · Doors On: ${r.doorsOn} · Cancelados: ${r.canc}${r.obs ? ` · ${esc(r.obs)}` : ''}</div></div>
           <div class="right"><b>${regVoos(r)} voos</b><small>${hhmm(regMin(r))}h</small></div>
           <button class="btn" data-wa="${r.date}">${icon('copy')} WhatsApp</button>
-          <button class="icon-btn ghost" data-edit="${r.date}" aria-label="Editar">${icon('pencil')}</button>
-          <button class="icon-btn ghost" data-del="${r.date}" aria-label="Excluir">${icon('trash')}</button></div>`).join('')}</div>`
+          ${r.auto ? `<button class="btn" data-prog="${r.date}" title="Os números deste dia vêm dos voos da Programação">${icon('pencil')} Ver voos</button>`
+            : `<button class="icon-btn ghost" data-edit="${r.date}" aria-label="Editar">${icon('pencil')}</button>
+          <button class="icon-btn ghost" data-del="${r.date}" aria-label="Excluir">${icon('trash')}</button>`}</div>`).join('')}</div>`
         : '<div class="empty">Nenhum registro neste ciclo.</div>'}
       <div class="section-title">Comparativo entre ciclos</div>
       <div class="grid g2">
@@ -652,12 +705,12 @@
   }
   function waText(s) {
     const r = regOf(s), c = cycleOf(s);
-    const upto = DB.registros.filter(x => x.date >= c.start && x.date <= s);
+    const upto = regsEntre(c.start, s);
     const v = upto.reduce((a, x) => a + regVoos(x), 0), m = upto.reduce((a, x) => a + regMin(x), 0);
     return `${dowName(s)} – ${br(s)} 🚁\n\n• Voos de 30min: ${r.v30}\n• Voos de 45min: ${r.v45}\n• Total Horas Dia: ${hhmm(regMin(r))}h\n\nTotal Horas Ciclo: ${hhmm(m)}h\nTotal Voos Ciclo: ${v}`;
   }
   function dayModal(date) {
-    const r = regOf(date) || { date, v30: 0, v45: 0, priv: 0, doorsOn: 0, canc: 0, obs: '' };
+    const r = regManual(date) || { date, v30: 0, v45: 0, priv: 0, doorsOn: 0, canc: 0, obs: '' };
     const num = (n, l) => `<div><label class="f">${l}</label><input class="input" type="number" min="0" name="${n}" value="${r[n]}"></div>`;
     modal('Registrar operação', 'Um registro por dia de operação.', `<form id="dayForm">
         <div class="field"><label class="f">Data da operação</label><input class="input" type="date" name="date" value="${date}" required></div>
@@ -665,6 +718,7 @@
         <div class="row2">${num('priv', 'Voos privados')}${num('doorsOn', 'Voos Doors On')}</div>
         <div class="row2" style="margin-bottom:4px">${num('canc', 'Voos cancelados')}</div><p class="muted small" style="margin:0 0 14px">Não entram no total nem nas horas.</p>
         <div class="field"><label class="f">Observações (opcional)</label><textarea class="input" name="obs">${esc(r.obs)}</textarea></div>
+        <p class="small" id="dayAuto" style="color:var(--amber);margin:0 0 12px;display:none">Este dia já tem voos FINALIZADOS na Programação: os números dele são calculados automaticamente e este registro manual não será usado.</p>
         <div class="summary" id="daySum"></div>
         <div class="actions"><button type="button" class="btn" data-x>Cancelar</button><button class="btn primary">Salvar</button></div></form>`,
     (m, close) => {
@@ -672,7 +726,8 @@
       const read = () => ({ date: f.date.value, v30: +f.v30.value || 0, v45: +f.v45.value || 0, priv: +f.priv.value || 0, doorsOn: +f.doorsOn.value || 0, canc: +f.canc.value || 0, obs: f.obs.value.trim() });
       const upd = () => {
         const x = read(); if (!x.date) return;
-        const c = cycleOf(x.date); const others = DB.registros.filter(o => o.date >= c.start && o.date <= c.end && o.date !== x.date);
+        m.querySelector('#dayAuto').style.display = regAuto(x.date) ? 'block' : 'none';
+        const c = cycleOf(x.date); const others = regsEntre(c.start, c.end).filter(o => o.date !== x.date);
         const cv = others.reduce((a, o) => a + regVoos(o), 0) + regVoos(x), cm = others.reduce((a, o) => a + regMin(o), 0) + regMin(x);
         const cc = others.reduce((a, o) => a + o.canc, 0) + x.canc;
         m.querySelector('#daySum').innerHTML = `<div><small>Voos do dia</small><b>${regVoos(x)}</b></div><div><small>Horas do dia</small><b>${hhmm(regMin(x))}h</b></div>
@@ -680,11 +735,10 @@
           <div><small>Cancelados no dia</small><b>${x.canc}</b></div><div><small>Cancelados no ciclo</small><b>${cc}</b></div>`;
       };
       f.oninput = upd; upd();
-      f.date.onchange = () => { const e = regOf(f.date.value); if (e) ['v30', 'v45', 'priv', 'doorsOn', 'canc', 'obs'].forEach(k => f[k].value = e[k]); upd(); };
+      f.date.onchange = () => { const e = regManual(f.date.value); if (e) ['v30', 'v45', 'priv', 'doorsOn', 'canc', 'obs'].forEach(k => f[k].value = e[k]); upd(); };
       f.onsubmit = e => {
         e.preventDefault(); const x = read();
-        DB.registros = DB.registros.filter(o => o.date !== x.date && o.date !== date);
-        DB.registros.push(x); close(); toast('Registro salvo'); save();
+        acaoOps({ tipo: 'registro_salvar', registro: x, dataAntiga: date }, 'Registro salvo para todos').then(r => { if (r) close(); });
       };
     });
   }
@@ -694,8 +748,9 @@
     root.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => dayModal(b.dataset.edit));
     root.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
       if (!confirm(`Excluir o registro de ${br(b.dataset.del)}?`)) return;
-      DB.registros = DB.registros.filter(r => r.date !== b.dataset.del); save();
+      acaoOps({ tipo: 'registro_excluir', date: b.dataset.del }, 'Registro excluído');
     });
+    root.querySelectorAll('[data-prog]').forEach(b => b.onclick = () => { progDate = b.dataset.prog; location.hash = '#/programacao'; });
     root.querySelectorAll('[data-wa]').forEach(b => b.onclick = () => {
       const t = waText(b.dataset.wa);
       (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Texto copiado para o WhatsApp'), () => { prompt('Copie o texto:', t); });
@@ -922,7 +977,7 @@
 
   // ---------- Painel da TV ----------
   function tvTotais(s) {
-    const c = cycleOf(s), t = cycleTotals(c, true);
+    const c = cycleOf(s), t = cycleTotals(c);
     return `<div class="tv-totais">
       <div class="tv-stat">${icon('heli')}<div><div class="k">Total de voos do ciclo</div><div class="v">${t.voos}</div></div></div>
       <div class="tv-stat">${icon('clock')}<div><div class="k">Horas voadas no ciclo</div><div class="v">${hhmm(t.min)}h</div></div></div>
@@ -1111,15 +1166,21 @@
     }, 1000);
     lastRoute = route();
     render();
-    loadOps(today(), true).then(render);
-    // voos do servidor: atualiza a cada 5 s com a aba visível (sem redesenhar enquanto alguém digita)
-    setInterval(async () => {
+    baixaGongo().catch(() => {});
+    loadOps(today(), true).then(() => loadCiclos(true)).then(render);
+    // servidor: confere a cada 5 s em TODAS as telas (aba visível); o que um operador muda aparece para todos.
+    // Só baixa de novo quando algo mudou (rev) e não redesenha enquanto alguém digita ou com janela aberta.
+    let pendente = false;
+    const atualiza = async () => {
+      if (document.hidden) return;
       const r = route();
-      if (document.hidden || !['', 'programacao', 'painel'].includes(r)) return;
-      const changed = await loadOps(r === 'programacao' ? progDate : today());
+      const a = await loadOps(r === 'programacao' ? progDate : today());
+      const b = await loadCiclos();
       const busy = document.querySelector('.overlay') || (document.activeElement && document.activeElement.matches('input,select,textarea'));
-      if (changed && !busy) render();
-    }, 5000);
+      if (a || b || pendente) { if (busy) pendente = true; else { pendente = false; render(); } }
+    };
+    setInterval(atualiza, 5000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) atualiza(); });
   }
 
   // ---------- Senha (versão publicada: dados criptografados em data.enc.js) ----------

@@ -50,7 +50,7 @@ svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
 .brand-sep { width: 1px; height: 20px; background: var(--line); }
 .brand-sub { font-size: 15px; font-weight: 500; color: var(--muted-fg); }
 .clock { margin-left: auto; display: flex; align-items: center; gap: 14px; }
-.clock .date { text-align: right; font-size: 12px; font-weight: 500; line-height: 1.3; color: var(--muted-fg); text-transform: capitalize; }
+.clock .date { text-align: right; font-size: 12px; font-weight: 500; line-height: 1.3; color: var(--muted-fg); }
 .clock .date div + div { color: var(--fg); }
 .clock .sep { width: 1px; height: 28px; background: var(--line); }
 .clock .time { font-size: 22px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
@@ -418,7 +418,7 @@ body.tv .tv-main { min-height: calc(100vh - 64px); align-items: start; }
   .top .brand-sub { display: block; font-size: 14px; }
   .top .clock > :not(.user-btn) { display: none; }
   .top-m { display: flex; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--border); background: rgba(255, 255, 255, .7); }
-  .top-m .date { display: flex; gap: 6px; font-size: 12px; font-weight: 500; color: var(--muted-fg); text-transform: capitalize; }
+  .top-m .date { display: flex; gap: 6px; font-size: 12px; font-weight: 500; color: var(--muted-fg); }
   .top-m .date div + div { color: var(--fg); }
   .top-m .date div + div::before { content: "· "; color: var(--muted-fg); }
   .top-m .sep { display: none; }
