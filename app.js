@@ -297,7 +297,7 @@
         <td class="c-voo"><span class="voo">${v.tipo === 'PRIVADO' ? 'PRIVADO ' + PROD_MIN[v.produto] : PROD_CURTO[v.produto]}</span></td>
         <td class="c-st">${withFoot ? `<select class="badge st-${v.status.replace(' ', '-')} stsel" data-status="${esc(v.id)}" aria-label="Status do voo ${esc(v.codigo || v.hora)}">${STATUS.map(x => `<option ${x === v.status ? 'selected' : ''}>${x}</option>`).join('')}</select>` : badge(v.status)}</td>${withFoot ? `<td class="c-aviso">${anuncioDe(v) ? `<button type="button" class="sino${anuncio && anuncio.id === v.id ? ' tocando' : ''}" data-sino="${esc(v.id)}" title="${esc(anuncioDe(v).nome)} do voo ${esc(v.codigo || v.hora)}" aria-label="${esc(anuncioDe(v).nome)} do voo ${esc(v.codigo || v.hora)}">${icon('bell')}</button>` : '<span class="muted small">—</span>'}</td>` : ''}</tr>`).join('')
       : `<tr class="empty-row"><td colspan="${withFoot ? 6 : 5}">${OPS.erro ? 'Sem conexão com o servidor de voos.' : 'Nenhum voo programado para hoje.'}</td></tr>`;
-    return `<div class="board"><div class="board-head">${icon('heli')}<h2>Painel de voos</h2></div>
+    return `<div class="board"><div class="board-head">${icon('heli')}<h2>Status de Voo</h2></div>
       <table><thead><tr><th style="width:17%">HORÁRIO</th><th style="width:8%">FITA</th><th style="width:9%">PAX</th><th style="width:21%">VOO</th><th>STATUS</th>${withFoot ? '<th style="width:9%">AVISO</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>
       ${withFoot && OPS.operador && !OPS.operador.admin && list.length ? '<div class="qe-nota">Horário, pulseira e PAX: edição rápida só para administradores.</div>' : ''}
       ${withFoot ? `<div class="board-foot"><a href="#/programacao">Cadastrar e editar voos →</a><a href="#/painel">Abrir painel da TV →</a></div>` : ''}</div>`;
@@ -478,7 +478,7 @@
     const list = OPS.date === progDate ? OPS.voos.slice() : [];
     const f = progForm;
     const seg = (key, opts, cols = 2) => `<div class="seg" style="grid-template-columns:repeat(${cols},1fr)">${opts.map(([v, l]) => `<button type="button" data-k="${key}" data-v="${v}" class="${String(f[key]) === String(v) ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-    return `<div class="page-head"><div><h1>Programação de voos</h1><p>Fonte única dos voos e PAX: alimenta o Painel de Voos, a TV da sala de espera, a TV do escritório e a Central de Avisos.</p></div>
+    return `<div class="page-head"><div><h1>Programação de voos</h1><p>Fonte única dos voos e PAX: alimenta o Status de Voo, a TV da sala de espera, a TV do escritório e a Central de Avisos.</p></div>
         <a class="btn" href="#/painel">${icon('tv')} Abrir painel da TV</a></div>
       ${opBar()}
       <div class="datebar"><button class="icon-btn" data-nav="-1">${icon('left')}</button><input type="date" class="input" id="progDate" value="${progDate}"><button class="icon-btn" data-nav="1">${icon('right')}</button><span class="muted">${dowName(progDate)}, ${br(progDate)}</span></div>
