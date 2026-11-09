@@ -1038,32 +1038,17 @@
   }
 
   // ---------- Início (menu) ----------
+  // ---------- Início: o MENU NOVO do VR-HUB (9 cards compactos), agora dentro do mesmo site ----------
+  const MENU_HUB = [["tv_sala_espera.html", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"6\" y=\"3\" width=\"12\" height=\"18\" rx=\"2\"/><path d=\"M10 18h4\"/></svg>", "Painel de Status", "TV da Sala de Espera", false, true], ["central_avisos.html", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13\"/></svg>", "Central de Avisos", "Chamada de passageiros por voz", false, true], ["#/dashboard", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/></svg>", "Dashboard", "Voos, escala e totais do dia", false, false], ["#/programacao", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"17\" rx=\"2\"/><path d=\"M3 9h18M8 2v4M16 2v4M7 13h4M7 17h7\"/></svg>", "Programação", "Cadastro de voos, PAX e status", false, false], ["#/voos", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 3v18h18\"/><path d=\"M7 15l4-4 3 3 5-6\"/></svg>", "Voos", "Resultados e horas por ciclo", false, false], ["#/escala", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20a6.5 6.5 0 0 1 13 0\"/><circle cx=\"17.5\" cy=\"9\" r=\"2.5\"/><path d=\"M16 14.2a5 5 0 0 1 6 4.8\"/></svg>", "Escala", "Escala mensal e diária da equipe", false, false], ["#/cameras", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 7h3l2-2.5h6L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z\"/><circle cx=\"12\" cy=\"13\" r=\"3.5\"/></svg>", "Câmeras", "Vendas e comissão de GoPro e 360°", false, false], ["#/historico", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 3-6.7L3 8\"/><path d=\"M3 3v5h5M12 7v5l3 2\"/></svg>", "Histórico", "Quem alterou o quê e quando", true, false], ["#/operadores", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l8-8M16 7l3 3M14 9l2 2\"/></svg>", "Operadores", "Logins, senhas e permissões", true, false]];
   function pageInicio() {
     const data = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).replace('-feira', '');
-    const hoje = OPS.date === today() ? OPS.voos : [];
-    const prox = hoje.filter(v => v.status !== 'FINALIZADO' && v.status !== 'CANCELADO').sort((a, b) => a.hora.localeCompare(b.hora))[0];
-    const card = (href, tag, titulo, texto, ir, extra = '', cls = '', ext = false) =>
-      `<a class="mcard ${cls}" href="${href}"${ext ? ' target="_blank" rel="noopener"' : ''}><span class="mtag ${cls === 'restrito' ? 'r' : ''}">${tag}</span><h2>${titulo}</h2><p>${texto}</p>${extra}<div class="mir">${ir}${ext ? ' ↗' : ''}</div></a>`;
-    const fitas = `<div class="mfitas">${Object.values(FITAS).map(c => `<i style="background:${c}"></i>`).join('')}</div>`;
-    const resumo = hoje.length
-      ? `<b>${hoje.length}</b> voo${hoje.length === 1 ? '' : 's'} hoje · <b>${hoje.reduce((a, v) => a + v.pax, 0)}</b> PAX${prox ? ` · próximo: ${prox.codigo} às ${prox.hora}` : ''}`
-      : OPS.erro ? 'Servidor de voos indisponível no momento' : 'Nenhum voo programado hoje';
-    return `<main class="menu-wrap">
-      <div class="mtopo"><a href="${HUB}" title="Menu principal"><img class="mlogo" src="brand/vertical-rio-logo-black.png" alt="VERTICAL.RIO"></a><div class="mdata">${data.charAt(0).toUpperCase() + data.slice(1)}</div></div>
-      <h1 class="mh1">Vertical Rio Hub</h1>
-      <div class="msub">Operação, telas internas e sala de espera. Voos, PAX, avisos e equipe num só lugar.</div>
-      <div class="mgrade">
-        ${card('#/programacao', 'FONTE DOS VOOS', 'Programação', 'Cadastre voos, PAX, pulseira e status. Tudo o que as TVs e a Central de Avisos mostram vem daqui.', 'Abrir programação', `<div class="mresumo">${resumo}</div>`, 'destaque')}
-        ${card(HUB + 'tv_sala_espera.html', 'TV SALA DE ESPERA', 'Próximos voos', 'Tela vertical com os próximos voos, produto, PAX, pulseira e status. Pisca e destaca o voo quando a Central faz um anúncio. Português, inglês e espanhol em rodízio.', 'Abrir painel', fitas, '', true)}
-        ${card(HUB + 'central_avisos.html', 'ANUNCIAR', 'Central de Avisos', 'Chamada de passageiros por voz e anúncio na TV da sala de espera, acionados sempre por uma pessoa.', 'Abrir central', '', '', true)}
-        ${card('#/dashboard', 'GESTÃO', 'Dashboard', 'Painel de voos com anúncio pelo sino, escala do dia, totais do ciclo e próximas folgas.', 'Abrir dashboard')}
-        ${card('#/painel', 'TV HORIZONTAL', 'Painel da TV', 'Voos do dia, escala do dia, total de voos e horas voadas do ciclo em tela cheia para a TV da base.', 'Abrir painel')}
-        ${card('#/voos', 'RESULTADOS', 'Controle de voos', 'Registro diário por ciclo (26 a 25), horas voadas, comparativo entre ciclos e texto pronto para o WhatsApp.', 'Abrir controle')}
-        ${card('#/escala', 'EQUIPE', 'Escala', 'Operação em calendário mensal e demais setores em escala diária, com resumo do mês e conflitos.', 'Abrir escala')}
-        ${card('#/cameras', 'VENDAS', 'Câmeras', 'Vendas de GoPro e câmera 360°, ranking dos vendedores e comissão automática de 10%.', 'Abrir câmeras')}
-        ${card('#/operadores', 'ACESSO RESTRITO', 'Operadores', 'Entre com seu nome e senha. Administradores cadastram, trocam a senha e excluem operadores.', 'Abrir operadores', '', 'restrito')}
-        ${card('#/historico', 'ACESSO RESTRITO', 'Histórico', 'Quem criou, alterou ou excluiu voos, PAX, pulseiras, status e avisos, com valor anterior e novo.', 'Abrir histórico', '', 'restrito')}
-      </div>
+    const cards = MENU_HUB.map(([href, svg, t, s, restrito, hub]) =>
+      `<a class="hm-card" href="${hub ? HUB + href : href}"><span class="hm-ico">${svg}</span><span class="hm-txt"><b>${t}</b><small>${s}</small></span>${restrito ? '<span class="hm-cad" title="Acesso restrito">Restrito</span>' : ''}<span class="hm-seta" aria-hidden="true">›</span></a>`).join('');
+    return `<main class="hm">
+      <div class="hm-topo"><a href="${HUB}" title="Menu principal"><img class="hm-logo" src="${HUB}assets/logo_vertical_rio.svg" alt="Vertical Rio"></a><div class="hm-data">${data.charAt(0).toUpperCase() + data.slice(1)}</div></div>
+      <h1 class="hm-h1">Vertical Rio Hub</h1>
+      <div class="hm-sub">Telas internas e de sala de espera. Os voos do dia vêm da Programação.</div>
+      <div class="hm-grade">${cards}</div>
     </main>`;
   }
 
