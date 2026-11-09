@@ -227,7 +227,7 @@
 
   // ---------- Header ----------
   // sem barra de abas: o início é o hub do gabrielcruz-teste no Netlify (logo e "← Início" voltam para lá)
-  const HUB = '../';   // tudo no mesmo domínio (vr-hub): o hub fica na raiz
+  const HUB = './';   // tudo no mesmo domínio (vr-hub): o hub fica na raiz
   function header() {
     return `<header class="top"><div class="wrap wide">
         <a href="${HUB}" title="Menu principal"><img class="logo" src="brand/vertical-rio-logo-black.png" alt="VERTICAL.RIO"></a>
