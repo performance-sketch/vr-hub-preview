@@ -232,7 +232,6 @@
     return `<header class="top"><div class="wrap wide">
         <a href="${HUB}" title="Menu principal"><img class="logo" src="brand/vertical-rio-logo-black.png" alt="VERTICAL.RIO"></a>
         <span class="brand-sep"></span><span class="brand-sub">Operations Hub</span>
-        <a href="${HUB}" class="voltar">← Início</a>
         <div class="clock">${clockHTML()}
           <button class="user-btn" id="userBtn" aria-label="Menu">${icon('user')}</button>
         </div></div><div class="top-m">${clockHTML()}</div></header>`;
@@ -1037,25 +1036,43 @@
     });
   }
 
-  // ---------- Início (menu) ----------
-  // ---------- Início: o MENU NOVO do VR-HUB (9 cards compactos), agora dentro do mesmo site ----------
-  const MENU_HUB = [["tv_sala_espera.html", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"6\" y=\"3\" width=\"12\" height=\"18\" rx=\"2\"/><path d=\"M10 18h4\"/></svg>", "Painel de Status", "TV da Sala de Espera", false, true], ["central_avisos.html", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13\"/></svg>", "Central de Avisos", "Chamada de passageiros por voz", false, true], ["#/dashboard", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/></svg>", "Dashboard", "Voos, escala e totais do dia", false, false], ["#/programacao", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"17\" rx=\"2\"/><path d=\"M3 9h18M8 2v4M16 2v4M7 13h4M7 17h7\"/></svg>", "Programação", "Cadastro de voos, PAX e status", false, false], ["#/voos", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 3v18h18\"/><path d=\"M7 15l4-4 3 3 5-6\"/></svg>", "Voos", "Resultados e horas por ciclo", false, false], ["#/escala", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20a6.5 6.5 0 0 1 13 0\"/><circle cx=\"17.5\" cy=\"9\" r=\"2.5\"/><path d=\"M16 14.2a5 5 0 0 1 6 4.8\"/></svg>", "Escala", "Escala mensal e diária da equipe", false, false], ["#/cameras", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 7h3l2-2.5h6L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z\"/><circle cx=\"12\" cy=\"13\" r=\"3.5\"/></svg>", "Câmeras", "Vendas e comissão de GoPro e 360°", false, false], ["#/historico", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 3-6.7L3 8\"/><path d=\"M3 3v5h5M12 7v5l3 2\"/></svg>", "Histórico", "Quem alterou o quê e quando", true, false], ["#/operadores", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l8-8M16 7l3 3M14 9l2 2\"/></svg>", "Operadores", "Logins, senhas e permissões", true, false]];
-  function pageInicio() {
-    const data = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'America/Sao_Paulo' }).replace('-feira', '');
-    const cards = MENU_HUB.map(([href, svg, t, s, restrito, hub]) =>
-      `<a class="hm-card" href="${hub ? HUB + href : href}"><span class="hm-ico">${svg}</span><span class="hm-txt"><b>${t}</b><small>${s}</small></span>${restrito ? '<span class="hm-cad" title="Acesso restrito">Restrito</span>' : ''}<span class="hm-seta" aria-hidden="true">›</span></a>`).join('');
-    return `<main class="hm">
-      <div class="hm-topo"><a href="${HUB}" title="Menu principal"><img class="hm-logo" src="${HUB}assets/logo_vertical_rio.svg" alt="Vertical Rio"></a><div class="hm-data">${data.charAt(0).toUpperCase() + data.slice(1)}</div></div>
-      <h1 class="hm-h1">Vertical Rio Hub</h1>
-      <div class="hm-sub">Telas internas e de sala de espera. Os voos do dia vêm da Programação.</div>
-      <div class="hm-grade">${cards}</div>
-    </main>`;
+  // ---------- Menu lateral (todas as telas internas): Dashboard no topo + grupos em dropdown ----------
+  // o Início É o Dashboard; o card "Dashboard" saiu do menu e #/dashboard volta para o início
+  const DASH_ICO = "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/></svg>";
+  const MENU_GRUPOS = [["telas", "Telas da sala", [["tv_sala_espera.html", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"6\" y=\"3\" width=\"12\" height=\"18\" rx=\"2\"/><path d=\"M10 18h4\"/></svg>", "Painel de Status", "TV da Sala de Espera", false, true], ["central_avisos.html", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13\"/></svg>", "Central de Avisos", "Chamada de passageiros por voz", false, true]]], ["operacao", "Operação", [["#/programacao", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"17\" rx=\"2\"/><path d=\"M3 9h18M8 2v4M16 2v4M7 13h4M7 17h7\"/></svg>", "Programação", "Cadastro de voos, PAX e status", false, false], ["#/voos", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 3v18h18\"/><path d=\"M7 15l4-4 3 3 5-6\"/></svg>", "Voos", "Resultados e horas por ciclo", false, false], ["#/escala", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20a6.5 6.5 0 0 1 13 0\"/><circle cx=\"17.5\" cy=\"9\" r=\"2.5\"/><path d=\"M16 14.2a5 5 0 0 1 6 4.8\"/></svg>", "Escala", "Escala mensal e diária da equipe", false, false], ["#/cameras", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 7h3l2-2.5h6L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z\"/><circle cx=\"12\" cy=\"13\" r=\"3.5\"/></svg>", "Câmeras", "Vendas e comissão de GoPro e 360°", false, false]]], ["admin", "Administração", [["#/historico", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 3-6.7L3 8\"/><path d=\"M3 3v5h5M12 7v5l3 2\"/></svg>", "Histórico", "Quem alterou o quê e quando", true, false], ["#/operadores", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l8-8M16 7l3 3M14 9l2 2\"/></svg>", "Operadores", "Logins, senhas e permissões", true, false]]]];
+  const SIDE_KEY = 'vro-side-grupos';
+  const sideState = () => { try { return JSON.parse(localStorage.getItem(SIDE_KEY)) || {}; } catch (e) { return {}; } };
+  let sideAberto = false; // celular: menu recolhido atrás do botão "Menu"
+  function sidebar(r) {
+    const st = sideState();
+    const link = ([href, svg, t, s, restrito, hub]) => {
+      const on = href === '#/' + r;
+      return `<a class="sd-item${on ? ' on' : ''}" href="${hub ? HUB + href : href}"${on ? ' aria-current="page"' : ''} title="${esc(s)}"><span class="sd-ico">${svg}</span><span class="sd-txt">${t}</span>${restrito ? '<span class="sd-cad" title="Acesso restrito">Restrito</span>' : ''}</a>`;
+    };
+    const grupos = MENU_GRUPOS.map(([id, nome, itens]) => {
+      const temAtivo = itens.some(i => i[0] === '#/' + r);
+      const aberto = temAtivo || st[id] !== false;
+      return `<details class="sd-grp" data-grp="${id}"${aberto ? ' open' : ''}><summary><span>${nome}</span><svg class="sd-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="sd-lista">${itens.map(link).join('')}</div></details>`;
+    }).join('');
+    return `<aside class="side${sideAberto ? ' aberto' : ''}" aria-label="Menu principal">
+      <button type="button" class="sd-toggle" id="sdToggle" aria-expanded="${sideAberto}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
+      <nav class="sd-nav">
+        <a class="sd-item sd-dash${r === '' ? ' on' : ''}" href="#/"${r === '' ? ' aria-current="page"' : ''}><span class="sd-ico">${DASH_ICO}</span><span class="sd-txt">Dashboard</span></a>
+        ${grupos}
+      </nav></aside>`;
+  }
+  function bindSidebar(app) {
+    app.querySelectorAll('.sd-grp').forEach(d => {
+      d.addEventListener('toggle', () => { const st = sideState(); st[d.dataset.grp] = d.open; try { localStorage.setItem(SIDE_KEY, JSON.stringify(st)); } catch (e) { /* */ } });
+    });
+    const t = app.querySelector('#sdToggle');
+    if (t) t.onclick = () => { sideAberto = !sideAberto; t.setAttribute('aria-expanded', sideAberto); t.closest('.side').classList.toggle('aberto', sideAberto); };
+    app.querySelectorAll('.sd-item').forEach(a => a.addEventListener('click', () => { sideAberto = false; }));
   }
 
   // ---------- Router ----------
   const PAGES = {
-    '': [pageInicio, null, 'VERTICAL RIO | Operations Hub'],
-    dashboard: [pageDashboard, bindDashboard, 'Dashboard · VERTICAL RIO'],
+    '': [pageDashboard, bindDashboard, 'Dashboard · VERTICAL RIO'],
     programacao: [pageProgramacao, bindProgramacao, 'Programação de voos · VERTICAL RIO'],
     voos: [pageVoos, bindVoos, 'Voos · VERTICAL RIO'],
     escala: [pageEscala, bindEscala, 'Escala · VERTICAL RIO'],
@@ -1064,17 +1081,18 @@
     operadores: [pageOperadores, bindOperadores, 'Operadores · VERTICAL RIO'],
     painel: [pagePainel, null, 'Dashboard · VERTICAL RIO']
   };
+  // #/dashboard (endereço antigo) = início
   function route() { const r = location.hash.replace(/^#\/?/, '').split('?')[0]; return PAGES[r] ? r : ''; }
   function render() {
     if (!DB) return;
     const r = route(), [page, bind, title] = PAGES[r], app = document.getElementById('app');
-    // o Operations Hub está DENTRO do VR-HUB (raiz): o Início é este menu, com todos os cards (sem redirecionar)
+    if (/^#\/?dashboard/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + '#/');
     const y = window.scrollY;
     document.title = title;
     document.body.classList.toggle('tv', r === 'painel');
-    document.body.classList.toggle('inicio', r === '');
-    app.innerHTML = r === 'painel' ? pagePainel() : r === '' ? pageInicio() : `${header(r)}<main class="wrap ${r === 'dashboard' ? 'wide' : ''}">${page()}</main>`;
+    app.innerHTML = r === 'painel' ? pagePainel() : `${header(r)}<div class="shell">${sidebar(r)}<main class="wrap ${r === '' ? 'wide' : ''}">${page()}</main></div>`;
     bind && bind(app);
+    if (r !== 'painel') bindSidebar(app);
     bindUserMenu();
     window.scrollTo(0, y);
   }
@@ -1089,7 +1107,7 @@
     setInterval(() => {
       const n = new Date(), t = `${pad(n.getHours())}:${pad(n.getMinutes())}`;
       document.querySelectorAll('[data-clock]').forEach(el => el.textContent = t);
-      if (t !== lastMin) { if (lastMin && (route() === 'painel' || route() === 'dashboard' || route() === '') && !document.querySelector('.overlay') && !(document.activeElement && document.activeElement.matches('input,select,textarea'))) render(); lastMin = t; }
+      if (t !== lastMin) { if (lastMin && (route() === 'painel' || route() === '') && !document.querySelector('.overlay') && !(document.activeElement && document.activeElement.matches('input,select,textarea'))) render(); lastMin = t; }
     }, 1000);
     lastRoute = route();
     render();
@@ -1097,7 +1115,7 @@
     // voos do servidor: atualiza a cada 5 s com a aba visível (sem redesenhar enquanto alguém digita)
     setInterval(async () => {
       const r = route();
-      if (document.hidden || !['', 'dashboard', 'programacao', 'painel'].includes(r)) return;
+      if (document.hidden || !['', 'programacao', 'painel'].includes(r)) return;
       const changed = await loadOps(r === 'programacao' ? progDate : today());
       const busy = document.querySelector('.overlay') || (document.activeElement && document.activeElement.matches('input,select,textarea'));
       if (changed && !busy) render();
