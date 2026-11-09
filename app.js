@@ -1083,7 +1083,7 @@
   function render() {
     if (!DB) return;
     const r = route(), [page, bind, title] = PAGES[r], app = document.getElementById('app');
-    if (r === '') { location.replace(HUB); return; } // o menu inicial agora é o hub do gabrielcruz-teste
+    // o Operations Hub está DENTRO do VR-HUB (raiz): o Início é este menu, com todos os cards (sem redirecionar)
     const y = window.scrollY;
     document.title = title;
     document.body.classList.toggle('tv', r === 'painel');
