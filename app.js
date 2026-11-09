@@ -224,9 +224,10 @@
   function dailyStatus(id, s) { return DB.escalaDiaria[s]?.[id]; }
   function statusOn(p, s) { return (p.setor === 'operacao' ? opStatus(p.id, s) : dailyStatus(p.id, s))?.s || 'N'; }
 
-  function salesOf(k) { return DB.vendas.filter(v => monthKey(v.date) === k); }
-  function sellerRank(k) {
-    const sales = salesOf(k);
+  // vendas de câmeras por CICLO (26 a 25), o mesmo período da tela Voos
+  function salesOf(c) { return DB.vendas.filter(v => v.date >= c.start && v.date <= c.end); }
+  function sellerRank(c) {
+    const sales = salesOf(c);
     return DB.team.map(t => {
       const mine = sales.filter(v => v.vendedor === t.id);
       const valor = mine.reduce((a, v) => a + v.valor, 0);
@@ -350,12 +351,12 @@
     }).join('');
     return `<div class="esc-card"><div class="esc-head">${icon('users')}<h2>Escala do dia</h2>${withLink ? '<a href="#/escala">Abrir escala →</a>' : ''}</div><div class="esc-body">${groups}</div></div>`;
   }
-  function cameraBlock(k, withLink) {
-    const sales = salesOf(k);
+  function cameraBlock(c, withLink) {
+    const sales = salesOf(c);
     const qtd = sales.reduce((a, v) => a + v.qtd, 0), valor = sales.reduce((a, v) => a + v.valor, 0);
-    const rank = sellerRank(k).filter(r => r.qtd > 0);
+    const rank = sellerRank(c).filter(r => r.qtd > 0);
     const max = Math.max(1, ...rank.map(r => r.valor));
-    return `<div class="cam-head">${icon('camera')}<h2>Vendas de câmeras</h2><span class="when">· ${monthLabel(k).toUpperCase()}</span>${withLink ? '<a href="#/cameras">Registrar venda →</a>' : ''}</div>
+    return `<div class="cam-head">${icon('camera')}<h2>Vendas de câmeras</h2><span class="when">· CICLO ${cycleLabel(c)}</span>${withLink ? '<a href="#/cameras">Registrar venda →</a>' : ''}</div>
       <div class="cam-body">
         <div class="card pad"><div class="k">${icon('camera')} Câmeras vendidas no mês</div><div class="v">${qtd}</div></div>
         <div class="card pad"><div class="k">${icon('coins')} Faturamento com câmeras</div><div class="v">${money(valor)}</div></div>
@@ -906,25 +907,25 @@
   }
 
   // ---------- Câmeras ----------
-  let camMonth = monthKey(today());
+  let camCycle = cycleOf(today());
   function pageCameras() {
-    const k = camMonth, sales = salesOf(k).sort((a, b) => b.date.localeCompare(a.date));
+    const k = camCycle, isCur = k.start === cycleOf(today()).start, sales = salesOf(k).sort((a, b) => b.date.localeCompare(a.date));
     const qtd = sales.reduce((a, v) => a + v.qtd, 0), valor = sales.reduce((a, v) => a + v.valor, 0);
     const gp = sales.filter(v => v.modelo === 'GoPro').reduce((a, v) => a + v.qtd, 0), c360 = qtd - gp;
     const rank = sellerRank(k), anySale = rank.some(r => r.qtd > 0);
     const max = Math.max(1, ...rank.map(r => r.valor)), maxQ = Math.max(1, ...rank.map(r => r.qtd));
-    const months = [-5, -4, -3, -2, -1, 0].map(n => addMonths(k, n));
+    const ciclos = [-5, -4, -3, -2, -1, 0].map(n => shiftCycle(k, n));
     return `<div class="page-head"><div><h1>Venda de câmeras</h1><p>GoPro e 360° · comissão automática de 10% sobre o valor vendido.</p></div>
         <button class="btn primary" id="newSale">${icon('plus')} Registrar venda</button></div>
-      <div class="period"><button class="icon-btn ghost" data-cm="-1">${icon('left')}</button><div class="mid">${monthLabel(k)}</div><button class="icon-btn ghost" data-cm="1">${icon('right')}</button></div>
-      <div class="section-title">Indicadores do mês</div>
+      <div class="period"><button class="icon-btn ghost" data-cm="-1">${icon('left')}</button><div class="mid">Ciclo ${cycleLabel(k)}<small>${isCur ? 'Ciclo atual' : 'Ciclo selecionado'}</small></div><button class="icon-btn ghost" data-cm="1">${icon('right')}</button></div>
+      <div class="section-title">Indicadores do ciclo</div>
       <div class="grid g3">
         <div class="card pad stat"><div class="label">Câmeras vendidas</div><div class="value">${qtd}</div><div class="sub">GoPro: ${gp} · Câmera 360°: ${c360}</div></div>
         <div class="card pad stat"><div class="label">Total de vendas</div><div class="value">${money(valor)}</div></div>
         <div class="card pad stat"><div class="label">Comissão da equipe</div><div class="value">${money(valor * 0.1)}</div></div>
       </div>
       <div class="grid g2" style="gap:32px">
-        <div><div class="section-title">Ranking mensal de vendedores</div><div class="card pad">${anySale ? rank.map((r, i) => rankRow(r, i, max)).join('') : '<div class="empty">Nenhuma venda neste mês.</div>'}</div></div>
+        <div><div class="section-title">Ranking de vendedores do ciclo</div><div class="card pad">${anySale ? rank.map((r, i) => rankRow(r, i, max)).join('') : '<div class="empty">Nenhuma venda neste ciclo.</div>'}</div></div>
         <div><div class="section-title">Comissão individual</div><div class="card"><table class="tbl"><thead><tr><th>Vendedor</th><th>Un.</th><th>Vendido</th><th>Comissão</th></tr></thead>
           <tbody>${rank.map(r => `<tr><td>${esc(r.name)}</td><td>${r.qtd}</td><td>${money(r.valor)}</td><td><b>${money(r.com)}</b></td></tr>`).join('')}</tbody></table></div></div>
       </div>
@@ -932,17 +933,17 @@
       <div class="grid g2">
         <div class="card pad"><div class="chart-head"><b>Câmeras vendidas por funcionário</b></div>
           ${anySale ? rank.slice().sort((a, b) => b.qtd - a.qtd).map((r, i) => `<div class="rank-row"><div class="top-line"><span class="pos">${i + 1}</span><span class="name">${esc(r.name)}</span><span class="amt">${r.qtd} un.<span class="un">${money(r.com)}</span></span></div><div class="track"><div class="fill" style="width:${(r.qtd / maxQ) * 100}%"></div></div></div>`).join('') : '<div class="empty">Sem vendas para comparar.</div>'}</div>
-        <div class="card pad"><div class="chart-head"><b>Faturamento · últimos 6 meses</b></div>
-          ${bars(months.map((m, i) => { const v = salesOf(m).reduce((a, x) => a + x.valor, 0); return { v, cur: i === 5, tip: `${monthLabel(m)}: ${money(v)}` }; }), months.map(m => MES[+m.slice(5) - 1].slice(0, 3)), { cls: 'gray' })}</div>
+        <div class="card pad"><div class="chart-head"><b>Faturamento · últimos 6 ciclos</b></div>
+          ${bars(ciclos.map((c, i) => { const v = salesOf(c).reduce((a, x) => a + x.valor, 0); return { v, cur: i === 5, tip: `${cycleLabel(c)}: ${money(v)}` }; }), ciclos.map(c => brShort(c.start)), { cls: 'gray' })}</div>
       </div>
       <div class="section-title">Vendas registradas</div>
       ${sales.length ? `<div class="list">${sales.map(v => `<div class="item"><div class="grow"><div class="title">${v.qtd} × ${MODELOS[v.modelo]} · ${money(v.valor)}</div>
           <div class="meta">${br(v.date)} · ${esc(pname(v.vendedor))} · comissão ${money(v.valor * 0.1)}</div></div>
           <button class="icon-btn ghost" data-edit="${v.id}" aria-label="Editar">${icon('pencil')}</button><button class="icon-btn ghost" data-del="${v.id}" aria-label="Excluir">${icon('trash')}</button></div>`).join('')}</div>`
-        : `<div class="empty">Nenhuma venda registrada em ${monthLabel(k)}.</div>`}`;
+        : `<div class="empty">Nenhuma venda registrada no ciclo ${cycleLabel(k)}.</div>`}`;
   }
   function saleModal(id) {
-    const v = DB.vendas.find(x => x.id === id) || { date: monthKey(today()) === camMonth ? today() : `${camMonth}-01`, modelo: 'GoPro', vendedor: DB.team[0]?.id, qtd: 1, valor: 0 };
+    const v = DB.vendas.find(x => x.id === id) || { date: today() >= camCycle.start && today() <= camCycle.end ? today() : camCycle.start, modelo: 'GoPro', vendedor: DB.team[0]?.id, qtd: 1, valor: 0 };
     modal(id ? 'Editar venda' : 'Registrar venda', 'Informe o valor total efetivamente vendido.', `<form id="saleForm">
         <div class="row2"><div><label class="f">Data da venda</label><input class="input" type="date" name="date" value="${v.date}" required></div>
           <div><label class="f">Modelo da câmera</label><select class="input" name="modelo">${Object.entries(MODELOS).map(([k, l]) => `<option value="${k}" ${v.modelo === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
@@ -961,12 +962,12 @@
         if (val() <= 0) return toast('Informe o valor vendido');
         const data = { date: f.date.value, modelo: f.modelo.value, vendedor: f.vendedor.value, qtd: Math.max(1, +f.qtd.value || 1), valor: val() };
         if (id) Object.assign(DB.vendas.find(x => x.id === id), data); else DB.vendas.push({ id: uid(), ...data });
-        camMonth = monthKey(data.date); close(); toast('Venda salva'); save();
+        camCycle = cycleOf(data.date); close(); toast('Venda salva'); save();
       };
     });
   }
   function bindCameras(root) {
-    root.querySelectorAll('[data-cm]').forEach(b => b.onclick = () => { camMonth = addMonths(camMonth, +b.dataset.cm); render(); });
+    root.querySelectorAll('[data-cm]').forEach(b => b.onclick = () => { camCycle = shiftCycle(camCycle, +b.dataset.cm); render(); });
     root.querySelector('#newSale').onclick = () => saleModal();
     root.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => saleModal(b.dataset.edit));
     root.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
