@@ -8,7 +8,7 @@
   const PRODUTOS = { DOORS_OFF_30: 'Doors Off 30 min', DOORS_OFF_45: 'Doors Off 45 min', DOORS_ON_30: 'Doors On 30 min' };
   const PROD_CURTO = { DOORS_OFF_30: 'DOORS OFF 30', DOORS_OFF_45: 'DOORS OFF 45', DOORS_ON_30: 'DOORS ON 30' };
   const PROD_MIN = { DOORS_OFF_30: 30, DOORS_OFF_45: 45, DOORS_ON_30: 30 };
-  const TIPOS_LOG = { cadastro: 'Cadastro', alteracao: 'Alteração', status: 'Status', horario: 'Horário', pax: 'PAX', pulseira: 'Pulseira', exclusao: 'Exclusão', aviso: 'Aviso', config: 'Configuração', registro: 'Registro de voos' };
+  const TIPOS_LOG = { cadastro: 'Cadastro', alteracao: 'Alteração', status: 'Status', horario: 'Horário', pax: 'PAX', pulseira: 'Pulseira', exclusao: 'Exclusão', aviso: 'Aviso', config: 'Configuração', registro: 'Registro de voos', acesso: 'Acesso (login)', usuario: 'Usuários e permissões' };
   const SETORES = { gestao: 'Gestão', coordenacao: 'Coordenação do Terminal', operacao: 'Operação', vendas: 'Vendas' };
   const SETOR_ORDER = ['gestao', 'coordenacao', 'operacao', 'vendas'];
   const ESC = { T: 'Trabalho', F: 'Folga', V: 'Férias', M: 'Dispensa médica' };
@@ -84,6 +84,12 @@
   // voos dos últimos 6 ciclos: as horas de cada dia saem dos voos FINALIZADOS (todos os usuários veem o mesmo)
   const VOOS_CICLOS = { de: null, rev: -2, voos: [], carregando: false };
   const token = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
+  // permissões do perfil (vêm do servidor, que confere cada ação): ver_pax, registros, dados (escala/comissões),
+  // historico, voo, pulseira, pax, aviso, registro, config, usuarios
+  const pode = p => !!(OPS.operador && (OPS.operador.permissoes || []).includes(p));
+  // sessão encerrada (expirou, senha trocada, usuário desativado): volta para a tela de login
+  function travar() { try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* */ } location.reload(); }
+  const sairConta = travar;
   async function api(path, opts = {}) {
     const h = { 'Content-Type': 'application/json' }; const t = token(); if (t) h.Authorization = `Bearer ${t}`;
     const r = await fetch(API + path, { ...opts, headers: { ...h, ...(opts.headers || {}) } });
@@ -100,7 +106,10 @@
       const d = await api(`/estado?de=${date}${same ? `&rev=${OPS.rev}` : ''}`);
       OPS.erro = null;
       if (d.igual) return false;
+      if (!d.operador && !window.SEED_DEV) { travar(); return false; }
       Object.assign(OPS, { date, rev: d.rev, voos: d.voos, config: d.config, avisos: d.avisos, operador: d.operador, hoje: d.hoje });
+      // perfil mudou: quem perdeu o acesso à escala/comissões tem os dados apagados deste aparelho; quem ganhou, recebe
+      if (DB && !window.SEED_DEV && (!!DB.restrito === pode('dados'))) { try { localStorage.removeItem(KEY); } catch (e) { /* */ } location.reload(); return false; }
       if (d.registros !== undefined) OPS.registros = d.registros;
       importarRegistros();
       return true;
@@ -127,9 +136,9 @@
       .then(() => render()).catch(() => { importando = false; });
   }
   async function acaoOps(body, okMsg) {
-    if (!OPS.operador) { loginModal(() => acaoOps(body, okMsg)); return null; }
+    if (!OPS.operador) { travar(); return null; }
     try { const r = await api('/acao', { method: 'POST', body: JSON.stringify(body) }); if (okMsg) toast(okMsg); await loadOps(OPS.date, true); await loadCiclos(true); render(); return r; }
-    catch (e) { if (e.status === 401) loginModal(() => acaoOps(body, okMsg)); else toast(e.message); return null; }
+    catch (e) { if (e.status === 401) travar(); else toast(e.message); return null; }
   }
   function loginModal(then) {
     modal('Entrar como operador', 'Suas alterações ficam registradas no histórico com o seu nome.', `<form id="opLogin">
@@ -150,7 +159,7 @@
       };
     });
   }
-  function logoutOp() { try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* */ } OPS.operador = null; loadOps(OPS.date || today(), true).then(render); toast('Operador desconectado'); }
+  function logoutOp() { sairConta(); }
   const vooMin = v => PROD_MIN[v.produto] || 30;
 
   // ---------- Estado ----------
@@ -173,9 +182,11 @@
     });
     return { version: S.version, team: S.team, programacao: S.programacao, registros: S.registros, escalaOp, escalaDiaria, vendas: S.vendas };
   }
+  // perfis sem acesso à escala/comissões (Operacional, Balcão) usam dados locais vazios: nada sensível fica no aparelho
+  const DB_VAZIO = () => ({ version: 0, restrito: true, team: [], programacao: [], registros: [], escalaOp: {}, escalaDiaria: {}, vendas: [] });
   function load() {
     try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch (e) { /* sem storage */ }
-    return fromSeed();
+    return window.SEED ? fromSeed() : DB_VAZIO();
   }
   let DB = null;
   function save() {
@@ -280,27 +291,28 @@
       e.stopPropagation();
       const old = btn.querySelector('.menu'); if (old) { old.remove(); return; }
       const m = document.createElement('div'); m.className = 'menu';
-      m.innerHTML = `${OPS.operador ? `<button data-a="opout">Sair do operador (${esc(OPS.operador.nome)})</button>` : '<button data-a="opin">Entrar como operador</button>'}
-        <button data-a="export">Exportar backup (.json)</button>
+      const dados = pode('dados') || window.SEED_DEV;
+      m.innerHTML = `${OPS.operador ? `<div class="hint" style="margin:0 0 6px">${esc(OPS.operador.nome)} · ${esc(OPS.operador.perfilNome || '')}</div><button data-a="opout">Sair</button>` : '<button data-a="opin">Entrar</button>'}
+        ${dados ? `<button data-a="export">Exportar backup (.json)</button>
         <label>Importar backup<input type="file" accept="application/json" hidden></label>
-        <button data-a="reset">Restaurar dados originais</button>
-        ${window.SEED_ENC ? '<button data-a="lock">Sair e bloquear este aparelho</button>' : ''}
-        <div class="hint">Os dados ficam salvos neste navegador.</div>`;
+        <button data-a="reset">Restaurar dados originais</button>` : ''}
+        ${window.SEED_ENC ? '<button data-a="lock">Sair e apagar os dados deste aparelho</button>' : ''}
+        <div class="hint">${dados ? 'Escala e câmeras ficam salvas neste navegador.' : 'Não deixe sua sessão aberta em aparelho compartilhado.'}</div>`;
       m.onclick = ev => ev.stopPropagation();
       const oin = m.querySelector('[data-a=opin]'); if (oin) oin.onclick = () => { m.remove(); loginModal(); };
       const oout = m.querySelector('[data-a=opout]'); if (oout) oout.onclick = () => { m.remove(); logoutOp(); };
-      m.querySelector('[data-a=export]').onclick = () => {
+      if (dados) m.querySelector('[data-a=export]').onclick = () => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([JSON.stringify(DB, null, 2)], { type: 'application/json' }));
         a.download = `verticalrio-operacoes-${today()}.json`; a.click(); m.remove();
       };
-      m.querySelector('input').onchange = ev => {
+      if (dados) m.querySelector('input').onchange = ev => {
         const f = ev.target.files[0]; if (!f) return;
         f.text().then(t => { const d = JSON.parse(t); if (!d.team || !d.registros) throw new Error(); DB = d; save(); toast('Backup importado'); })
           .catch(() => toast('Arquivo inválido'));
         m.remove();
       };
-      m.querySelector('[data-a=reset]').onclick = () => {
+      if (dados) m.querySelector('[data-a=reset]').onclick = () => {
         if (confirm('Apagar as alterações feitas neste navegador e voltar aos dados originais?')) {
           if (window.SEED) { DB = fromSeed(); save(); toast('Dados restaurados'); }
           else { try { localStorage.removeItem(KEY); localStorage.removeItem(UNLOCK); } catch (e) { /* */ } location.reload(); }
@@ -309,8 +321,8 @@
       };
       const lockBtn = m.querySelector('[data-a=lock]');
       if (lockBtn) lockBtn.onclick = () => {
-        if (confirm('Bloquear este aparelho? Os dados salvos aqui serão apagados e será preciso digitar a senha de novo.')) {
-          try { localStorage.removeItem(KEY); localStorage.removeItem(UNLOCK); } catch (e) { /* */ }
+        if (confirm('Sair e apagar os dados deste aparelho? Será preciso entrar de novo.')) {
+          try { localStorage.removeItem(KEY); localStorage.removeItem(UNLOCK); localStorage.removeItem(TOKEN_KEY); } catch (e) { /* */ }
           location.hash = ''; location.reload();
         }
       };
@@ -323,18 +335,20 @@
   function flightBoard(s, withFoot) {
     const list = OPS.date === s ? OPS.voos.filter(v => v.data === s) : [];
     const flip = t => `<span class="flip">${[...t].map(c => (c === ':' ? '<i>:</i>' : `<b>${c}</b>`)).join('')}</span>`;
-    const adm = withFoot && OPS.operador && OPS.operador.admin;
+    const adm = withFoot && pode('usuarios');           // horário e PAX: edição rápida do administrador
+    const qePul = withFoot && pode('pulseira');         // pulseira: administrador, operacional e balcão
+    const stEdit = withFoot && pode('voo'), sino = withFoot && pode('aviso');
     const rows = list.length ? list.map(v => `<tr>
         <td class="c-hora">${adm ? `<input type="time" class="qe qe-hora" data-qe="hora" data-id="${esc(v.id)}" value="${esc(v.hora)}" aria-label="Horário do voo">` : flip(v.hora)}</td>
-        <td class="c-fita">${adm ? `<label class="qe-fita" title="Pulseira"><span class="dot" style="background:${FITAS[v.pulseira]}"></span><select data-qe="pulseira" data-id="${esc(v.id)}" aria-label="Pulseira">${Object.keys(FITAS).map(f => `<option value="${f}" ${f === v.pulseira ? 'selected' : ''}>${f.charAt(0) + f.slice(1).toLowerCase()}</option>`).join('')}</select></label>` : `<span class="dot" style="background:${FITAS[v.pulseira]}"></span>`}</td>
+        <td class="c-fita">${qePul ? `<label class="qe-fita" title="Pulseira"><span class="dot" style="background:${FITAS[v.pulseira]}"></span><select data-qe="pulseira" data-id="${esc(v.id)}" aria-label="Pulseira">${Object.keys(FITAS).map(f => `<option value="${f}" ${f === v.pulseira ? 'selected' : ''}>${f.charAt(0) + f.slice(1).toLowerCase()}</option>`).join('')}</select></label>` : `<span class="dot" style="background:${FITAS[v.pulseira]}"></span>`}</td>
         <td class="c-pax">${adm ? `<input type="number" min="0" max="99" inputmode="numeric" class="pax qe qe-pax" data-qe="pax" data-id="${esc(v.id)}" value="${v.pax}" aria-label="PAX">` : `<span class="pax">${v.pax}</span>`}</td>
         <td class="c-voo"><span class="voo">${v.tipo === 'PRIVADO' ? 'PRIVADO ' + PROD_MIN[v.produto] : PROD_CURTO[v.produto]}</span></td>
-        <td class="c-st">${withFoot ? `<select class="badge st-${v.status.replace(' ', '-')} stsel" data-status="${esc(v.id)}" aria-label="Status do voo ${esc(v.codigo || v.hora)}">${STATUS.map(x => `<option ${x === v.status ? 'selected' : ''}>${x}</option>`).join('')}</select>` : badge(v.status)}</td>${withFoot ? `<td class="c-aviso">${anuncioDe(v) ? `<button type="button" class="sino${anuncio && anuncio.id === v.id ? ' tocando' : ''}" data-sino="${esc(v.id)}" title="${esc(anuncioDe(v).nome)} do voo ${esc(v.codigo || v.hora)}" aria-label="${esc(anuncioDe(v).nome)} do voo ${esc(v.codigo || v.hora)}">${icon('bell')}</button>` : '<span class="muted small">—</span>'}</td>` : ''}</tr>`).join('')
+        <td class="c-st">${stEdit ? `<select class="badge st-${v.status.replace(' ', '-')} stsel" data-status="${esc(v.id)}" aria-label="Status do voo ${esc(v.codigo || v.hora)}">${STATUS.map(x => `<option ${x === v.status ? 'selected' : ''}>${x}</option>`).join('')}</select>` : badge(v.status)}</td>${withFoot ? `<td class="c-aviso">${sino && anuncioDe(v) ? `<button type="button" class="sino${anuncio && anuncio.id === v.id ? ' tocando' : ''}" data-sino="${esc(v.id)}" title="${esc(anuncioDe(v).nome)} do voo ${esc(v.codigo || v.hora)}" aria-label="${esc(anuncioDe(v).nome)} do voo ${esc(v.codigo || v.hora)}">${icon('bell')}</button>` : '<span class="muted small">—</span>'}</td>` : ''}</tr>`).join('')
       : `<tr class="empty-row"><td colspan="${withFoot ? 6 : 5}">${OPS.erro ? 'Sem conexão com o servidor de voos.' : 'Nenhum voo programado para hoje.'}</td></tr>`;
-    return `<div class="board"><div class="board-head">${icon('heli')}<h2>Status de Voo</h2>${withFoot ? `<a class="board-edit" href="#/programacao" title="Editar voos na Programação">${icon('pencil')}Editar</a>` : ''}</div>
+    return `<div class="board"><div class="board-head">${icon('heli')}<h2>Status de Voo</h2>${withFoot && pode('voo') ? `<a class="board-edit" href="#/programacao" title="Editar voos na Programação">${icon('pencil')}Editar</a>` : ''}</div>
       <table><thead><tr><th style="width:17%">HORÁRIO</th><th style="width:8%">FITA</th><th style="width:9%">PAX</th><th style="width:21%">VOO</th><th>STATUS</th>${withFoot ? '<th style="width:9%">AVISO</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>
-      ${withFoot && OPS.operador && !OPS.operador.admin && list.length ? '<div class="qe-nota">Horário, pulseira e PAX: edição rápida só para administradores.</div>' : ''}
-      ${withFoot ? `<div class="board-foot"><a href="#/programacao">Cadastrar e editar voos →</a></div>` : ''}</div>`;
+      ${withFoot && OPS.operador && !adm && list.length ? `<div class="qe-nota">Horário e PAX: edição rápida só para administradores.${qePul ? '' : ' Seu perfil só consulta os voos.'}</div>` : ''}
+      ${withFoot ? `<div class="board-foot"><a href="#/programacao">${pode('voo') ? 'Cadastrar e editar voos →' : 'Ver voos e passageiros →'}</a></div>` : ''}</div>`;
   }
   function totalsBox(s) {
     const t = cycleTotals(cycleOf(s));
@@ -344,6 +358,7 @@
       <div class="t">${icon('clock')}<div><div class="k">Horas voadas do ciclo</div><div class="v">${hhmm(t.min)}h</div></div></div></div>`;
   }
   function escalaDia(s, withLink) {
+    if (!pode('dados') && !window.SEED_DEV) return `<div class="esc-card"><div class="esc-head">${icon('users')}<h2>Escala do dia</h2></div><div class="esc-body"><span class="muted small">Disponível só para Gestão e Administração.</span></div></div>`;
     const groups = SETOR_ORDER.map(sec => {
       const ps = bySetor(sec); if (!ps.length) return '';
       return `<div class="esc-group">${icon(SETOR_ICON[sec])} ${SETORES[sec]}</div>` +
@@ -352,6 +367,7 @@
     return `<div class="esc-card"><div class="esc-head">${icon('users')}<h2>Escala do dia</h2>${withLink ? '<a href="#/escala">Abrir escala →</a>' : ''}</div><div class="esc-body">${groups}</div></div>`;
   }
   function cameraBlock(c, withLink) {
+    if (!pode('dados') && !window.SEED_DEV) return `<div class="esc-card"><div class="esc-head">${icon('users')}<h2>Vendas de câmeras</h2></div><div class="esc-body"><span class="muted small">Disponível só para Gestão e Administração.</span></div></div>`;
     const sales = salesOf(c);
     const qtd = sales.reduce((a, v) => a + v.qtd, 0), valor = sales.reduce((a, v) => a + v.valor, 0);
     const rank = sellerRank(c).filter(r => r.qtd > 0);
@@ -522,7 +538,7 @@
 
   function opBar() {
     return `<div class="card pad" style="display:flex;align-items:center;gap:12px;margin-bottom:24px;flex-wrap:wrap">
-      ${icon('user')}${OPS.operador ? `<span>Operador: <b>${esc(OPS.operador.nome)}</b></span><button class="btn" id="opOut" style="margin-left:auto">Sair</button>`
+      ${icon('user')}${OPS.operador ? `<span><b>${esc(OPS.operador.nome)}</b> <span class="muted">· ${esc(OPS.operador.perfilNome || '')}</span></span><button class="btn" id="opOut" style="margin-left:auto">Sair</button>`
         : `<span class="muted">Entre com seu nome e PIN para cadastrar ou alterar voos. Tudo fica registrado no histórico.</span><button class="btn primary" id="opIn" style="margin-left:auto">Entrar como operador</button>`}
       ${OPS.erro ? `<span class="small" style="color:var(--red);width:100%">Sem conexão com o servidor: ${esc(OPS.erro)}</span>` : ''}</div>`;
   }
@@ -536,7 +552,7 @@
       ${opBar()}
       <div class="datebar"><button class="icon-btn" data-nav="-1">${icon('left')}</button><input type="date" class="input" id="progDate" value="${progDate}"><button class="icon-btn" data-nav="1">${icon('right')}</button><span class="muted">${dowName(progDate)}, ${br(progDate)}</span></div>
       <div class="prog-grid">
-        <div><div class="section-title" style="margin-top:0">${progEdit ? 'Editar voo' : 'Novo voo'}</div>
+        <div>${pode('voo') ? `<div class="section-title" style="margin-top:0">${progEdit ? 'Editar voo' : 'Novo voo'}</div>
           <form class="card pad" id="flightForm">
             <div class="row2"><div><label class="f">Horário</label><input type="time" class="input" name="hora" value="${f.hora}" required></div>
               <div><label class="f">PAX</label><div class="stepper"><button type="button" class="icon-btn" data-pax="-1">${icon('minus')}</button><input class="input" name="pax" type="number" min="0" max="30" value="${f.pax}"><button type="button" class="icon-btn" data-pax="1">${icon('plus')}</button></div></div></div>
@@ -548,22 +564,23 @@
               <label class="obs-tv"><input type="checkbox" name="obsTv" ${f.obsTv ? 'checked' : ''}> Mostrar no Painel de Status (TV)</label></div>
             <button class="btn primary" style="width:100%;justify-content:center">${progEdit ? 'Salvar alterações' : 'Cadastrar voo'}</button>
             ${progEdit ? '<button type="button" class="btn" id="cancelEdit" style="width:100%;justify-content:center;margin-top:8px">Cancelar edição</button>' : ''}
-          </form>
-          <div class="section-title">TV da sala de espera</div>
+          </form>` : `<div class="section-title" style="margin-top:0">Seu acesso</div><div class="card pad muted small">Perfil <b>${esc(OPS.operador?.perfilNome || '')}</b>: ${pode('pax') ? 'consulta os voos, faz o check-in dos passageiros e troca a cor da pulseira. Horário, status e cadastro de voos ficam com a operação.' : 'consulta os voos e passageiros, sem alterar.'}</div>`}
+          ${pode('config') ? `<div class="section-title">TV da sala de espera</div>
           <div class="card pad"><label class="f">Voos exibidos ao mesmo tempo</label>
-            <div class="stepper"><input class="input" id="tvVoos" type="number" min="1" max="12" value="${OPS.config.tvVoos}"><button class="btn" id="saveTv">Salvar</button></div></div>
+            <div class="stepper"><input class="input" id="tvVoos" type="number" min="1" max="12" value="${OPS.config.tvVoos}"><button class="btn" id="saveTv">Salvar</button></div></div>` : ''}
         </div>
         <div><div class="section-title" style="margin-top:0">Voos programados · ${br(progDate)} <span>${list.length} voo${list.length === 1 ? '' : 's'} · ${list.reduce((a, v) => a + v.pax, 0)} PAX</span></div>
           ${list.length ? `<div class="list">${list.map(v => `<div class="item" style="flex-wrap:wrap">
               <span class="f-time">${v.hora}</span>
               <div class="grow"><div class="title" style="display:flex;align-items:center;gap:8px"><span class="muted small">${v.codigo}</span><span class="swatch" style="background:${FITAS[v.pulseira]}"></span>${v.pulseira}</div>
                 <div class="meta">${v.pax} PAX · ${PRODUTOS[v.produto]} · ${v.tipo}${v.obs ? ` · ${esc(v.obs)}` : ''}</div></div>
-              ${v.obs ? `<button class="btn tv-obs ${v.obsTv ? 'on' : ''}" data-obstv="${v.id}" title="${v.obsTv ? 'A observação aparece no Painel de Status. Clique para esconder.' : 'Clique para a observação aparecer no Painel de Status.'}">${icon('tv')} ${v.obsTv ? 'Na TV' : 'Mostrar na TV'}</button>` : ''}
+              ${v.obs && pode('voo') ? `<button class="btn tv-obs ${v.obsTv ? 'on' : ''}" data-obstv="${v.id}" title="${v.obsTv ? 'A observação aparece no Painel de Status. Clique para esconder.' : 'Clique para a observação aparecer no Painel de Status.'}">${icon('tv')} ${v.obsTv ? 'Na TV' : 'Mostrar na TV'}</button>` : ''}
               ${badge(v.status)}
-              <select class="input" style="width:150px" data-status="${v.id}">${STATUS.map(s => `<option ${s === v.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
+              ${pode('voo') ? `<select class="input" style="width:150px" data-status="${v.id}">${STATUS.map(s => `<option ${s === v.status ? 'selected' : ''}>${s}</option>`).join('')}</select>`
+                : pode('pulseira') ? `<select class="input" style="width:130px" data-pulseira="${v.id}" aria-label="Pulseira do voo ${v.codigo}">${Object.keys(FITAS).map(k => `<option value="${k}" ${k === v.pulseira ? 'selected' : ''}>${k}</option>`).join('')}</select>` : ''}
               <button class="icon-btn" data-paxopen="${v.id}" title="Passageiros" aria-label="Passageiros">${icon('users')}</button>
-              <button class="icon-btn" data-edit="${v.id}" aria-label="Editar">${icon('pencil')}</button>
-              <button class="icon-btn" data-del="${v.id}" aria-label="Excluir">${icon('trash')}</button>
+              ${pode('voo') ? `<button class="icon-btn" data-edit="${v.id}" aria-label="Editar">${icon('pencil')}</button>
+              <button class="icon-btn" data-del="${v.id}" aria-label="Excluir">${icon('trash')}</button>` : ''}
               ${progOpen === v.id ? paxPanel(v) : ''}</div>`).join('')}</div>`
             : `<div class="empty">${OPS.erro ? 'Sem conexão com o servidor de voos.' : 'Nenhum voo programado para este dia.'}</div>`}
         </div>
@@ -572,6 +589,9 @@
   function paxPanel(v) {
     if (!OPS.operador) return `<div style="width:100%;padding-top:10px" class="muted small">Entre como operador para ver e editar os nomes dos passageiros.</div>`;
     const lst = v.paxList || [];
+    if (!pode('pax')) return `<div style="width:100%;border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+      <div class="small muted" style="margin-bottom:8px">Passageiros identificados: ${lst.length} de ${v.pax} · pulseira ${v.pulseira} · somente consulta</div>
+      ${lst.map(p => `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="swatch" style="background:${FITAS[v.pulseira]}"></span><span>${esc(p.nome)}</span>${p.obs ? `<span class="muted small">· ${esc(p.obs)}</span>` : ''}</div>`).join('') || '<span class="muted small">Nenhum passageiro identificado.</span>'}</div>`;
     return `<div style="width:100%;border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
       <div class="small muted" style="margin-bottom:8px">Passageiros identificados: ${lst.length} de ${v.pax} · pulseira ${v.pulseira}</div>
       ${lst.map(p => `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="swatch" style="background:${FITAS[v.pulseira]}"></span>
@@ -585,6 +605,8 @@
     root.querySelectorAll('[data-nav]').forEach(b => b.onclick = () => { progDate = addDays(progDate, +b.dataset.nav); render(); });
     root.querySelector('#progDate').onchange = e => { if (e.target.value) { progDate = e.target.value; render(); } };
     const form = root.querySelector('#flightForm');
+    root.querySelectorAll('[data-pulseira]').forEach(s => s.onchange = () => acaoOps({ tipo: 'editar_voo', id: s.dataset.pulseira, mudancas: { pulseira: s.value } }, 'Pulseira atualizada'));
+    if (form) {
     const sync = () => { progForm.hora = form.hora.value; progForm.pax = Math.max(0, +form.pax.value || 0); progForm.status = form.status.value; progForm.obs = form.obs.value; progForm.obsTv = form.obsTv.checked; };
     form.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { sync(); progForm[b.dataset.k] = b.dataset.v; render(); });
     form.querySelectorAll('[data-pax]').forEach(b => b.onclick = () => { sync(); progForm.pax = Math.max(0, progForm.pax + +b.dataset.pax); form.pax.value = progForm.pax; });
@@ -597,7 +619,8 @@
       if (r) { progEdit = null; progForm = emptyFlight(); render(); }
     };
     const ce = root.querySelector('#cancelEdit'); if (ce) ce.onclick = () => { progEdit = null; progForm = emptyFlight(); render(); };
-    root.querySelector('#saveTv').onclick = () => acaoOps({ tipo: 'config', tvVoos: +root.querySelector('#tvVoos').value }, 'Configuração da TV salva');
+    }
+    const st = root.querySelector('#saveTv'); if (st) st.onclick = () => acaoOps({ tipo: 'config', tvVoos: +root.querySelector('#tvVoos').value }, 'Configuração da TV salva');
     root.querySelectorAll('[data-status]').forEach(s => s.onchange = () => acaoOps({ tipo: 'editar_voo', id: s.dataset.status, mudancas: { status: s.value } }));
     root.querySelectorAll('[data-obstv]').forEach(b => b.onclick = () => { const v = OPS.voos.find(x => x.id === b.dataset.obstv);
       acaoOps({ tipo: 'editar_voo', id: v.id, mudancas: { obsTv: !v.obsTv } }, v.obsTv ? 'Observação escondida da TV' : 'Observação aparecendo no Painel de Status'); });
@@ -993,15 +1016,22 @@
 
   // ---------- Operadores (login, cadastro e exclusão) ----------
   let OPERS = null, operErro = null;
-  const PERFIS = { op: 'Operador', aud: 'Operador + histórico', adm: 'Administrador' };
-  const perfilDe = o => (o.admin ? 'adm' : o.auditor ? 'aud' : 'op');
-  const perfilBody = v => ({ admin: v === 'adm', auditor: v !== 'op' });
+  const PERFIS = { adm: 'Administrador', gestao: 'Gestão', operacional: 'Operacional', balcao: 'Balcão' };
+  const PERFIS_DESC = {
+    adm: 'controle completo: voos, PAX, avisos, escala e comissões, histórico, usuários e configurações',
+    gestao: 'visualização geral: voos, passageiros, resultados, escala, comissões e histórico, sem alterar',
+    operacional: 'cadastra, edita e gerencia voos, PAX, avisos (Central) e registros de voos',
+    balcao: 'consulta voos e passageiros, faz o check-in e troca a cor da pulseira, sem alterar horário ou status'
+  };
+  const perfilDe = o => (PERFIS[o.perfil] ? o.perfil : o.admin ? 'adm' : o.auditor ? 'gestao' : 'operacional');
+  const perfilBody = v => ({ perfil: v });
+  const quando = iso => { if (!iso) return 'nunca entrou'; const d = new Date(iso); return `último acesso ${d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })} ${d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}`; };
   async function loadOpers() {
     try { OPERS = (await api('/operadores')).operadores; operErro = null; } catch (e) { OPERS = []; operErro = e.message; }
     render();
   }
   function pageOperadores() {
-    const head = `<div class="page-head"><div><h1>Operadores</h1><p>Quem pode cadastrar e alterar voos, PAX, pulseiras, status e avisos. Cada operador entra com nome e PIN, e tudo o que faz fica no histórico.</p></div></div>`;
+    const head = `<div class="page-head"><div><h1>Usuários e permissões</h1><p>Cada pessoa tem login próprio. Não use contas compartilhadas. Cada usuário vê só o que o perfil dele permite, e os acessos e alterações ficam no histórico.</p></div></div>`;
     if (!OPS.operador) {
       return `${head}<div class="op-login card pad">
         <h2 style="margin:0 0 4px;font-size:20px">Entrar</h2><p class="muted" style="margin:0 0 18px">Use o nome e o PIN que o administrador cadastrou para você.</p>
@@ -1017,25 +1047,27 @@
     const minha = `<div class="card pad" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
         ${icon('user')}<div><b>${esc(eu.nome)}</b><div class="muted small">${PERFIS[perfilDe(eu)]}</div></div>
         <button class="btn" id="meuPin" style="margin-left:auto">Alterar meu PIN</button><button class="btn" id="opOut">Sair</button></div>`;
-    if (!eu.admin) return `${head}${minha}<div class="empty" style="margin-top:16px">Só administradores cadastram, alteram e excluem operadores.</div>`;
+    if (!pode('usuarios')) return `${head}${minha}<div class="empty" style="margin-top:16px">Seu perfil: ${PERFIS_DESC[perfilDe(eu)]}. Só administradores cadastram, alteram e excluem usuários.</div>`;
     if (!OPERS) { loadOpers(); return `${head}${minha}<div class="empty" style="margin-top:16px">Carregando operadores...</div>`; }
     const ativos = OPERS.filter(o => o.ativo).length;
+    const porPerfil = Object.entries(PERFIS).map(([k, l]) => { const n = OPERS.filter(o => o.ativo && perfilDe(o) === k).length; return `<div class="card pad"><div class="muted small">${l}</div><div style="font-size:24px;font-weight:700">${n}</div></div>`; }).join('');
     return `${head}${minha}
-      <div class="section-title">Novo operador</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:16px">${porPerfil}</div>
+      <div class="section-title">Novo usuário</div>
       <form id="novoOp" class="card pad op-form">
         <div><label class="f">Nome</label><input class="input" name="nome" placeholder="Ex.: Veloso" maxlength="40" required></div>
         <div><label class="f">PIN ou senha</label><input class="input" name="pin" type="password" minlength="4" maxlength="32" placeholder="4 a 32 caracteres" required></div>
         <div><label class="f">Confirmar</label><input class="input" name="pin2" type="password" minlength="4" maxlength="32" required></div>
-        <div><label class="f">Permissão</label><select class="input" name="perfil">${Object.entries(PERFIS).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></div>
+        <div><label class="f">Perfil</label><select class="input" name="perfil">${Object.entries(PERFIS).map(([k, l]) => `<option value="${k}" ${k === 'balcao' ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
         <button class="btn primary" style="justify-content:center">${icon('plus')} Cadastrar</button>
       </form>
-      <p class="muted small" style="margin:8px 2px 0"><b>Operador</b>: cadastra e altera voos, PAX e avisos. <b>Operador + histórico</b>: também vê o histórico. <b>Administrador</b>: pode qualquer função, de operador e de administrador (voos, PAX, pulseiras, status, avisos, voz da Central, histórico e gerenciar operadores).</p>
-      <div class="section-title">Operadores cadastrados <span>${ativos} ativo${ativos === 1 ? '' : 's'} de ${OPERS.length}</span></div>
+      <p class="muted small" style="margin:8px 2px 0">${Object.entries(PERFIS).map(([k, l]) => `<b>${l}</b>: ${PERFIS_DESC[k]}.`).join(' ')} <b>Telas públicas</b> (TV da sala de espera): sem login, só horário, produto, pulseira, status e observações marcadas para a TV.</p>
+      <div class="section-title">Usuários cadastrados <span>${ativos} ativo${ativos === 1 ? '' : 's'} de ${OPERS.length}</span></div>
       ${operErro ? `<div class="empty">${esc(operErro)}</div>` : `<div class="list">${OPERS.map(o => `<div class="item op-row" data-oid="${o.id}">
           <div class="grow"><div class="title" style="${o.ativo ? '' : 'text-decoration:line-through;color:var(--muted-fg)'}">${esc(o.nome)}${o.id === eu.id ? ' <span class="muted small">(você)</span>' : ''}</div>
-            <div class="meta">${o.ativo ? 'Ativo' : 'Desativado'}</div></div>
+            <div class="meta">${o.ativo ? 'Ativo' : 'Desativado'} · ${PERFIS[perfilDe(o)]} · ${quando(o.ultimoAcesso)}</div></div>
           <select class="input" data-operfil style="width:200px" ${o.id === eu.id ? 'disabled' : ''}>${Object.entries(PERFIS).map(([k, l]) => `<option value="${k}" ${perfilDe(o) === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
-          <button class="btn" data-opin>Novo PIN</button>
+          <button class="btn" data-opin>Nova senha</button>
           ${o.id === eu.id ? '' : `<button class="btn" data-oativo>${o.ativo ? 'Desativar' : 'Reativar'}</button><button class="btn danger" data-odel>${icon('trash')} Excluir</button>`}
         </div>`).join('')}</div>`}`;
   }
@@ -1077,7 +1109,7 @@
     if (no) no.onsubmit = e => {
       e.preventDefault();
       if (no.pin.value !== no.pin2.value) return toast('Os PINs não conferem');
-      opCall({ op: 'criar', nome: no.nome.value.trim(), pin: no.pin.value, ...perfilBody(no.perfil.value) }, `Operador ${no.nome.value.trim()} cadastrado`);
+      opCall({ op: 'criar', nome: no.nome.value.trim(), pin: no.pin.value, ...perfilBody(no.perfil.value) }, `Usuário ${no.nome.value.trim()} cadastrado`);
     };
     root.querySelectorAll('[data-oid]').forEach(row => {
       const id = row.dataset.oid, o = OPERS.find(x => x.id === id);
@@ -1086,16 +1118,19 @@
         : pinModal(`Novo PIN · ${o.nome}`, 'O operador passa a entrar com este PIN. Sessões abertas com o PIN antigo são encerradas.', false, novo =>
           api('/operadores', { method: 'POST', body: JSON.stringify({ op: 'pin', id, pin: novo }) }).then(d => { OPERS = d.operadores; toast('PIN redefinido'); render(); })));
       const at = row.querySelector('[data-oativo]');
-      if (at) at.onclick = () => opCall({ op: 'ativo', id, ativo: !o.ativo }, o.ativo ? 'Operador desativado' : 'Operador reativado');
+      if (at) at.onclick = () => opCall({ op: 'ativo', id, ativo: !o.ativo }, o.ativo ? 'Usuário desativado: o acesso foi revogado na hora' : 'Usuário reativado');
       const del = row.querySelector('[data-odel]');
-      if (del) del.onclick = () => { if (confirm(`Excluir o operador ${o.nome}? Ele não poderá mais entrar. O que ele já fez continua no histórico.`)) opCall({ op: 'excluir', id }, `Operador ${o.nome} excluído`); };
+      if (del) del.onclick = () => { if (confirm(`Excluir o usuário ${o.nome}? Ele não poderá mais entrar. O que ele já fez continua no histórico.`)) opCall({ op: 'excluir', id }, `Usuário ${o.nome} excluído`); };
     });
   }
 
   // ---------- Menu lateral (todas as telas internas): Dashboard no topo + grupos em dropdown ----------
   // o Início É o Dashboard; o card "Dashboard" saiu do menu e #/dashboard volta para o início
   const DASH_ICO = "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\" rx=\"1.5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\" rx=\"1.5\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\" rx=\"1.5\"/></svg>";
-  const MENU_GRUPOS = [["telas", "Telas da sala", [["tv_sala_espera.html", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"6\" y=\"3\" width=\"12\" height=\"18\" rx=\"2\"/><path d=\"M10 18h4\"/></svg>", "Painel de Status", "TV da Sala de Espera", false, true], ["central_avisos.html", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13\"/></svg>", "Central de Avisos", "Chamada de passageiros por voz", false, true]]], ["operacao", "Operação", [["#/programacao", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"17\" rx=\"2\"/><path d=\"M3 9h18M8 2v4M16 2v4M7 13h4M7 17h7\"/></svg>", "Programação", "Cadastro de voos, PAX e status", false, false], ["#/voos", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 3v18h18\"/><path d=\"M7 15l4-4 3 3 5-6\"/></svg>", "Voos", "Resultados e horas por ciclo", false, false], ["#/escala", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20a6.5 6.5 0 0 1 13 0\"/><circle cx=\"17.5\" cy=\"9\" r=\"2.5\"/><path d=\"M16 14.2a5 5 0 0 1 6 4.8\"/></svg>", "Escala", "Escala mensal e diária da equipe", false, false], ["#/cameras", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 7h3l2-2.5h6L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z\"/><circle cx=\"12\" cy=\"13\" r=\"3.5\"/></svg>", "Câmeras", "Vendas e comissão de GoPro e 360°", false, false]]], ["admin", "Administração", [["#/historico", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 3-6.7L3 8\"/><path d=\"M3 3v5h5M12 7v5l3 2\"/></svg>", "Histórico", "Quem alterou o quê e quando", true, false], ["#/operadores", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l8-8M16 7l3 3M14 9l2 2\"/></svg>", "Operadores", "Logins, senhas e permissões", true, false]]]];
+  const MENU_GRUPOS = [["telas", "Telas da sala", [["tv_sala_espera.html", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"6\" y=\"3\" width=\"12\" height=\"18\" rx=\"2\"/><path d=\"M10 18h4\"/></svg>", "Painel de Status", "TV da Sala de Espera", false, true], ["central_avisos.html", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13\"/></svg>", "Central de Avisos", "Chamada de passageiros por voz", false, true]]], ["operacao", "Operação", [["#/programacao", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"17\" rx=\"2\"/><path d=\"M3 9h18M8 2v4M16 2v4M7 13h4M7 17h7\"/></svg>", "Programação", "Cadastro de voos, PAX e status", false, false], ["#/voos", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 3v18h18\"/><path d=\"M7 15l4-4 3 3 5-6\"/></svg>", "Voos", "Resultados e horas por ciclo", false, false], ["#/escala", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.5 20a6.5 6.5 0 0 1 13 0\"/><circle cx=\"17.5\" cy=\"9\" r=\"2.5\"/><path d=\"M16 14.2a5 5 0 0 1 6 4.8\"/></svg>", "Escala", "Escala mensal e diária da equipe", false, false], ["#/cameras", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 7h3l2-2.5h6L17 7h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z\"/><circle cx=\"12\" cy=\"13\" r=\"3.5\"/></svg>", "Câmeras", "Vendas e comissão de GoPro e 360°", false, false]]], ["admin", "Administração", [["#/historico", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 3-6.7L3 8\"/><path d=\"M3 3v5h5M12 7v5l3 2\"/></svg>", "Histórico", "Quem alterou o quê e quando", true, false], ["#/operadores", "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l8-8M16 7l3 3M14 9l2 2\"/></svg>", "Usuários", "Logins, perfis e permissões", true, false]]]];
+  // telas que dependem de permissão (as demais: qualquer usuário logado)
+  const PERM_ROTA = { voos: 'registros', escala: 'dados', cameras: 'dados', historico: 'historico', 'central_avisos.html': 'aviso' };
+  const podeRota = r => window.SEED_DEV || !PERM_ROTA[r] || pode(PERM_ROTA[r]);
   const SIDE_KEY = 'vro-side-grupos';
   const sideState = () => { try { return JSON.parse(localStorage.getItem(SIDE_KEY)) || {}; } catch (e) { return {}; } };
   let sideAberto = false; // celular: menu recolhido atrás do botão "Menu"
@@ -1105,7 +1140,9 @@
       const on = href === '#/' + r;
       return `<a class="sd-item${on ? ' on' : ''}" href="${hub ? HUB + href : href}"${on ? ' aria-current="page"' : ''} title="${esc(s)}"><span class="sd-ico">${svg}</span><span class="sd-txt">${t}</span>${restrito ? '<span class="sd-cad" title="Acesso restrito">Restrito</span>' : ''}</a>`;
     };
-    const grupos = MENU_GRUPOS.map(([id, nome, itens]) => {
+    const grupos = MENU_GRUPOS.map(([id, nome, todos]) => {
+      const itens = todos.filter(i => podeRota(i[0].replace(/^#\//, '')));
+      if (!itens.length) return '';
       const temAtivo = itens.some(i => i[0] === '#/' + r);
       const aberto = temAtivo || st[id] !== false;
       return `<details class="sd-grp" data-grp="${id}"${aberto ? ' open' : ''}><summary><span>${nome}</span><svg class="sd-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="sd-lista">${itens.map(link).join('')}</div></details>`;
@@ -1141,7 +1178,8 @@
   function route() { const r = location.hash.replace(/^#\/?/, '').split('?')[0]; return PAGES[r] ? r : ''; }
   function render() {
     if (!DB) return;
-    const r = route(), [page, bind, title] = PAGES[r], app = document.getElementById('app');
+    const r = route(), app = document.getElementById('app');
+    const [page, bind, title] = podeRota(r) ? PAGES[r] : [() => `<div class="page-head"><div><h1>Acesso restrito</h1><p>Seu perfil (${esc(OPS.operador?.perfilNome || '')}) não tem acesso a esta tela. Se precisar, peça a um administrador.</p></div></div>`, null, 'Acesso restrito · VERTICAL RIO'];
     if (/^#\/?dashboard/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + '#/');
     const y = window.scrollY;
     document.title = title;
@@ -1198,7 +1236,7 @@
     document.title = 'Entrar · VERTICAL RIO';
     document.getElementById('app').innerHTML = `<header class="top"><div class="wrap wide"><a href="${HUB}" title="Menu principal"><img class="logo" src="brand/vertical-rio-logo-black.png" alt="VERTICAL.RIO"></a><span class="brand-sep"></span><span class="brand-sub">Operations Hub</span></div></header>
       <main class="wrap" style="max-width:420px;padding-top:64px">
-        <form id="lockForm" class="card pad"><h1 style="font-size:22px;margin:0 0 6px">Entrar</h1><p class="muted" style="margin:0 0 18px">Acesso restrito à equipe da Vertical Rio. Use o login e a senha de operador.</p>
+        <form id="lockForm" class="card pad"><h1 style="font-size:22px;margin:0 0 6px">Entrar</h1><p class="muted" style="margin:0 0 18px">Acesso restrito à equipe da Vertical Rio. Use seu login e senha individuais. Não compartilhe sua senha nem a deixe anotada em local visível.</p>
           <div class="field"><label class="f" for="login">Login</label><input id="login" class="input" name="login" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus></div>
           <div class="field"><label class="f" for="senha">Senha</label><input id="senha" class="input" name="senha" type="password" autocomplete="current-password" required></div>
           <p id="lockErr" class="small" style="color:var(--red);min-height:18px;margin:0 0 8px"></p>
@@ -1212,9 +1250,7 @@
         const d = await api('/login', { method: 'POST', body: JSON.stringify({ nome: f.login.value.trim(), pin: f.senha.value }) });
         try { localStorage.setItem(TOKEN_KEY, d.token); } catch (err) { /* sem storage */ }
         OPS.operador = d.operador;
-        const { chave } = await api('/chave');
-        window.SEED = await decryptSeed(chave);
-        try { localStorage.setItem(UNLOCK, window.SEED_ENC.salt); } catch (err) { /* sem storage */ }
+        await prepararDados();
         start();
       } catch (err) {
         document.getElementById('lockErr').textContent = err.status === 401 ? 'Login ou senha incorretos.' : (err.message || 'Não foi possível entrar.');
@@ -1222,11 +1258,35 @@
       }
     };
   }
-  function boot() {
-    if (window.SEED) return start();
-    let ok = false;
-    try { ok = localStorage.getItem(UNLOCK) === window.SEED_ENC?.salt && !!localStorage.getItem(KEY); } catch (e) { /* */ }
-    if (ok) start(); else lockScreen();
+  // escala/comissões: só Gestão e Administrador recebem a chave do servidor. Os demais perfis não guardam
+  // esses dados no aparelho (se havia, de outro usuário com acesso, são apagados).
+  async function prepararDados() {
+    let local = null;
+    try { local = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { /* */ }
+    if (!pode('dados')) {
+      window.SEED = null;
+      if (local && !local.restrito) try { localStorage.removeItem(KEY); localStorage.removeItem(UNLOCK); } catch (e) { /* */ }
+      return;
+    }
+    if (local && !local.restrito) return;   // usa as alterações de escala/câmeras já salvas neste aparelho
+    const { chave } = await api('/chave');
+    window.SEED = await decryptSeed(chave);
+    try { localStorage.removeItem(KEY); localStorage.setItem(UNLOCK, window.SEED_ENC.salt); } catch (err) { /* sem storage */ }
+  }
+  // sempre exige um usuário logado (sessão válida no servidor) antes de abrir qualquer tela
+  async function boot() {
+    if (window.SEED) { window.SEED_DEV = true; return start(); }   // versão local de desenvolvimento (data.js aberto)
+    if (!token()) return lockScreen();
+    try {
+      const d = await api('/eu');
+      OPS.operador = d.operador;
+      await prepararDados();
+      start();
+    } catch (e) {
+      if (e.status === 401 || e.status === 403) { try { localStorage.removeItem(TOKEN_KEY); } catch (err) { /* */ } return lockScreen(); }
+      lockScreen();
+      const el = document.getElementById('lockErr'); if (el) el.textContent = 'Sem conexão com o servidor. Tente de novo em instantes.';
+    }
   }
   boot();
 })();
