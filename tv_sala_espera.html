@@ -174,19 +174,26 @@ function proximoAviso(){
  // "Início em 5 minutos" chega como aviso geral com texto "Início em 5 minutos · Sala N"
  if(a.tipo==='geral'&&/^Início em 5 minutos/.test(a.texto||''))a={...a,tipo:'inicio5',texto:String(a.texto).replace(/^Início em 5 minutos\s*·?\s*/,'')};
  const tx=AVISO[a.tipo]||AVISO.geral,v=OPS.voos.find(x=>x.id===a.vooId),al=document.getElementById('alerta');
- al.innerHTML=`<div class="k">${tx[0]}</div>${a.codigo?`<div class="v">Voo ${opsEsc(a.codigo)}</div>`:''}<div class="t">${tx[1]}</div>
-  ${a.sub?`<div class="s">${a.pulseira?`<i style="background:${OPS_PULSEIRAS[a.pulseira]}"></i>`:''}${opsEsc(a.sub)}${a.pulseira?` · pulseira ${TX.pt.cor[a.pulseira].toLowerCase()}`:''}</div>`:''}
-  <div class="tr">${tx[2]}${a.codigo?' · Flight '+opsEsc(a.codigo):''}<br>${tx[3]}${a.codigo?' · Vuelo '+opsEsc(a.codigo):''}</div>${a.texto?`<div class="txt">${opsEsc(a.texto)}</div>`:''}`;
+ // 2.1: no lugar do número do voo (VR-004), o horário do voo em destaque
+ const hm=(a.sub||'').match(/(\d{1,2})h(\d{2})\s*$/),hora=(v&&v.hora)||(hm?hm[1].padStart(2,'0')+':'+hm[2]:''),sub=(a.sub||'').replace(/\s*·\s*\d{1,2}h\d{2}\s*$/,'');
+ al.innerHTML=`<div class="k">${tx[0]}</div>${hora?`<div class="v">${opsEsc(hora)}</div>`:''}<div class="t">${tx[1]}</div>
+  ${sub?`<div class="s">${a.pulseira?`<i style="background:${OPS_PULSEIRAS[a.pulseira]}"></i>`:''}${opsEsc(sub)}${a.pulseira?` · pulseira ${TX.pt.cor[a.pulseira].toLowerCase()}`:''}</div>`:''}
+  <div class="tr">${tx[2]}${hora?' · Flight '+opsEsc(hora):''}<br>${tx[3]}${hora?' · Vuelo '+opsEsc(hora):''}</div>${a.texto?`<div class="txt">${opsEsc(a.texto)}</div>`:''}`;
  destaque=v?v.id:null;render();
  document.body.classList.add('flash');al.classList.add('on');
  const ini=Date.now(),fecha=()=>{al.classList.remove('on');document.body.classList.remove('flash');destaque=null;render();setTimeout(proximoAviso,600)};
+ // 2.2: aviso falado fica na tela só enquanto a Central/Dashboard fala; some assim que a fala termina
+ // (confere o servidor a cada 1 s enquanto o alerta está aberto). Aviso sem fala: 5 s. Limite de segurança: 3 min.
+ let ultimaBusca=0;
  const espera=()=>{const atual=(OPS.avisos||[]).find(x=>x.id===a.id)||a,dt=Date.now()-ini;
-  if(dt>=180e3||(dt>=5000&&(!a.fala||atual.fim)))fecha();else setTimeout(espera,500)};
- setTimeout(espera,5000);
+  if(dt>=180e3||(a.fala?(atual.fim&&dt>=1500):dt>=5000))return fecha();
+  if(a.fala&&Date.now()-ultimaBusca>=1000){ultimaBusca=Date.now();opsCarregar(false).then(m=>{if(m)render()})}
+  setTimeout(espera,400)};
+ setTimeout(espera,400);
 }
 
 relogio();setInterval(relogio,1000);
-opsAcompanhar(()=>{render();novosAvisos()},+param('seg')||4);
+opsAcompanhar(()=>{render();novosAvisos()},+param('seg')||2);
 function trocaIdioma(){ // fade out (0,5 s) → troca o texto → fade in
  const b=document.body;b.classList.add('trocando');
  setTimeout(()=>{if(mostrando){b.classList.remove('trocando');return}

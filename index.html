@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="styles.css">
+  <script>/* aparência: 'auto' segue o aparelho; 'claro'/'escuro' fixos (menu do usuário). Aplica antes de desenhar, sem piscar */window.vroTema=function(t){try{if(t)localStorage.setItem('vro-tema',t);t=localStorage.getItem('vro-tema')||'auto'}catch(e){t=t||'auto'}var m=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)'),esc=t==='escuro'||(t==='auto'&&m&&m.matches);document.documentElement.classList.toggle('escuro',!!esc);document.documentElement.style.colorScheme=esc?'dark':'light';return t};vroTema();try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(){vroTema()})}catch(e){}</script>
 </head>
 <body><div style="position:sticky;top:0;z-index:9999;background:#f5c400;color:#231F20;font:700 13px system-ui;text-align:center;padding:6px;letter-spacing:.08em">AMBIENTE DE TESTES · dados separados do site real</div>
   <div id="app"></div>

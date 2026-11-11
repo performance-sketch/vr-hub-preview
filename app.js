@@ -8,7 +8,7 @@
   const PRODUTOS = { DOORS_OFF_30: 'Doors Off 30 min', DOORS_OFF_45: 'Doors Off 45 min', DOORS_ON_30: 'Doors On 30 min' };
   const PROD_CURTO = { DOORS_OFF_30: 'DOORS OFF 30', DOORS_OFF_45: 'DOORS OFF 45', DOORS_ON_30: 'DOORS ON 30' };
   const PROD_MIN = { DOORS_OFF_30: 30, DOORS_OFF_45: 45, DOORS_ON_30: 30 };
-  const TIPOS_LOG = { cadastro: 'Cadastro', alteracao: 'Alteração', status: 'Status', horario: 'Horário', pax: 'PAX', pulseira: 'Pulseira', exclusao: 'Exclusão', aviso: 'Aviso', config: 'Configuração', registro: 'Registro de voos', acesso: 'Acesso (login)', usuario: 'Usuários e permissões' };
+  const TIPOS_LOG = { cadastro: 'Cadastro', alteracao: 'Alteração', status: 'Status', horario: 'Horário', pax: 'PAX', pulseira: 'Pulseira', exclusao: 'Exclusão', aviso: 'Aviso', config: 'Configuração', registro: 'Registro de voos', acesso: 'Acesso (login)', usuario: 'Usuários e permissões', venda: 'Câmeras' };
   const SETORES = { gestao: 'Gestão', coordenacao: 'Coordenação do Terminal', operacao: 'Operação', vendas: 'Vendas' };
   const SETOR_ORDER = ['gestao', 'coordenacao', 'operacao', 'vendas'];
   const ESC = { T: 'Trabalho', F: 'Folga', V: 'Férias', M: 'Dispensa médica' };
@@ -80,7 +80,7 @@
   // ---------- Servidor de operação (voos, PAX, avisos, log) ----------
   const API = 'https://vr-hub-teste.netlify.app/api';
   const TOKEN_KEY = 'vro-op-token';
-  const OPS = { date: null, rev: -1, voos: [], config: { tvVoos: 6 }, avisos: [], operador: null, erro: null, carregando: false, registros: null };
+  const OPS = { date: null, rev: -1, voos: [], config: { tvVoos: 6 }, avisos: [], operador: null, erro: null, carregando: false, registros: null, vendas: null };
   // voos dos últimos 6 ciclos: as horas de cada dia saem dos voos FINALIZADOS (todos os usuários veem o mesmo)
   const VOOS_CICLOS = { de: null, rev: -2, voos: [], carregando: false };
   const token = () => { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } };
@@ -111,7 +111,8 @@
       // perfil mudou: quem perdeu o acesso à escala/comissões tem os dados apagados deste aparelho; quem ganhou, recebe
       if (DB && !window.SEED_DEV && (!!DB.restrito === pode('dados'))) { try { localStorage.removeItem(KEY); } catch (e) { /* */ } location.reload(); return false; }
       if (d.registros !== undefined) OPS.registros = d.registros;
-      importarRegistros();
+      if (d.vendas !== undefined) OPS.vendas = d.vendas;
+      importarRegistros(); importarVendas();
       return true;
     } catch (e) { OPS.erro = e.message; if (!same) Object.assign(OPS, { date, voos: [], rev: -1 }); return true; } finally { OPS.carregando = false; }
   }
@@ -123,6 +124,7 @@
       const d = await api(`/estado?de=${de}&ate=${today()}`);
       Object.assign(VOOS_CICLOS, { de, rev: d.rev, voos: d.voos });
       if (d.registros !== undefined) OPS.registros = d.registros;
+      if (d.vendas !== undefined) OPS.vendas = d.vendas;
       return true;
     } catch (e) { return false; } finally { VOOS_CICLOS.carregando = false; }
   }
@@ -134,6 +136,19 @@
     api('/acao', { method: 'POST', body: JSON.stringify({ tipo: 'registros_importar', registros: DB.registros }) })
       .then(r => { if (r.resultado && r.resultado.importados) toast(`${r.resultado.importados} registros de voos enviados para o servidor`); return loadCiclos(true); })
       .then(() => render()).catch(() => { importando = false; });
+  }
+  // vendas de câmeras: antes ficavam só no navegador de cada um. Cada aparelho com acesso leva as suas para o
+  // servidor uma vez (o servidor junta pelo id, sem duplicar); depois disso todos os logins veem as mesmas vendas.
+  const VENDAS_ENVIADAS = 'vro-vendas-enviadas';
+  let importandoVendas = false;
+  function importarVendas() {
+    if (importandoVendas || window.SEED_DEV || !pode('dados') || !DB || DB.restrito || !(DB.vendas || []).length) return;
+    const marca = `${OPS.operador.id}:${DB.version || 0}`;
+    try { if (localStorage.getItem(VENDAS_ENVIADAS) === marca) return; } catch (e) { return; }
+    importandoVendas = true;
+    api('/acao', { method: 'POST', body: JSON.stringify({ tipo: 'vendas_importar', vendas: DB.vendas }) })
+      .then(r => { try { localStorage.setItem(VENDAS_ENVIADAS, marca); } catch (e) { /* */ } if (r.resultado && r.resultado.importados) toast(`${r.resultado.importados} vendas de câmeras enviadas para o servidor`); return loadOps(OPS.date || today(), true); })
+      .then(() => render()).catch(() => { importandoVendas = false; });
   }
   async function acaoOps(body, okMsg) {
     if (!OPS.operador) { travar(); return null; }
@@ -236,7 +251,9 @@
   function statusOn(p, s) { return (p.setor === 'operacao' ? opStatus(p.id, s) : dailyStatus(p.id, s))?.s || 'N'; }
 
   // vendas de câmeras por CICLO (26 a 25), o mesmo período da tela Voos
-  function salesOf(c) { return DB.vendas.filter(v => v.date >= c.start && v.date <= c.end); }
+  // do servidor (iguais para todos os logins); enquanto o servidor não tem, as deste navegador
+  const vendas = () => (Array.isArray(OPS.vendas) ? OPS.vendas : DB.vendas);
+  function salesOf(c) { return vendas().filter(v => v.date >= c.start && v.date <= c.end); }
   function sellerRank(c) {
     const sales = salesOf(c);
     return DB.team.map(t => {
@@ -285,6 +302,8 @@
     const n = new Date();
     return `<div class="date"><div>${DOW[n.getDay()]}</div><div>${br(iso(n))}</div></div><span class="sep"></span><div class="time" data-clock>${pad(n.getHours())}:${pad(n.getMinutes())}</div>`;
   }
+  // aparência (3.1): automático (segue o aparelho), claro ou escuro; aplicada pelo index.html (window.vroTema)
+  const temaAtual = () => { try { return localStorage.getItem('vro-tema') || 'auto'; } catch (e) { return 'auto'; } };
   function bindUserMenu() {
     const btn = document.getElementById('userBtn'); if (!btn) return;
     btn.onclick = e => {
@@ -297,8 +316,14 @@
         <label>Importar backup<input type="file" accept="application/json" hidden></label>
         <button data-a="reset">Restaurar dados originais</button>` : ''}
         ${window.SEED_ENC ? '<button data-a="lock">Sair e apagar os dados deste aparelho</button>' : ''}
-        <div class="hint">${dados ? 'Escala e câmeras ficam salvas neste navegador.' : 'Não deixe sua sessão aberta em aparelho compartilhado.'}</div>`;
+        <div class="hint" style="margin:8px 0 0">Aparência</div>
+        <div class="tema-op">${[['auto', 'Automático'], ['claro', 'Claro'], ['escuro', 'Escuro']].map(([k, l]) => `<button data-tema="${k}" class="${temaAtual() === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <div class="hint">${dados ? 'A escala fica salva neste navegador; vendas de câmeras, voos e registros ficam no servidor.' : 'Não deixe sua sessão aberta em aparelho compartilhado.'}</div>`;
       m.onclick = ev => ev.stopPropagation();
+      m.querySelectorAll('[data-tema]').forEach(b => b.onclick = () => {
+        if (window.vroTema) window.vroTema(b.dataset.tema);
+        m.querySelectorAll('[data-tema]').forEach(x => x.classList.toggle('on', x === b));
+      });
       const oin = m.querySelector('[data-a=opin]'); if (oin) oin.onclick = () => { m.remove(); loginModal(); };
       const oout = m.querySelector('[data-a=opout]'); if (oout) oout.onclick = () => { m.remove(); logoutOp(); };
       if (dados) m.querySelector('[data-a=export]').onclick = () => {
@@ -335,7 +360,7 @@
   function flightBoard(s, withFoot) {
     const list = OPS.date === s ? OPS.voos.filter(v => v.data === s) : [];
     const flip = t => `<span class="flip">${[...t].map(c => (c === ':' ? '<i>:</i>' : `<b>${c}</b>`)).join('')}</span>`;
-    const adm = withFoot && pode('usuarios');           // horário e PAX: edição rápida do administrador
+    const adm = withFoot && pode('edicao_rapida');      // horário e PAX: edição rápida (Administrador e Balcão)
     const qePul = withFoot && pode('pulseira');         // pulseira: administrador, operacional e balcão
     const stEdit = withFoot && pode('voo'), sino = withFoot && pode('aviso');
     const rows = list.length ? list.map(v => `<tr>
@@ -347,7 +372,7 @@
       : `<tr class="empty-row"><td colspan="${withFoot ? 6 : 5}">${OPS.erro ? 'Sem conexão com o servidor de voos.' : 'Nenhum voo programado para hoje.'}</td></tr>`;
     return `<div class="board"><div class="board-head">${icon('heli')}<h2>Status de Voo</h2>${withFoot && pode('voo') ? `<a class="board-edit" href="#/programacao" title="Editar voos na Programação">${icon('pencil')}Editar</a>` : ''}</div>
       <table><thead><tr><th style="width:17%">HORÁRIO</th><th style="width:8%">FITA</th><th style="width:9%">PAX</th><th style="width:21%">VOO</th><th>STATUS</th>${withFoot ? '<th style="width:9%">AVISO</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>
-      ${withFoot && OPS.operador && !adm && list.length ? `<div class="qe-nota">Horário e PAX: edição rápida só para administradores.${qePul ? '' : ' Seu perfil só consulta os voos.'}</div>` : ''}
+      ${withFoot && OPS.operador && !adm && list.length ? `<div class="qe-nota">Horário e PAX: edição rápida para Administrador e Balcão${pode('voo') ? ' (use Editar na Programação)' : ''}.${qePul ? '' : ' Seu perfil só consulta os voos.'}</div>` : ''}
       ${withFoot ? `<div class="board-foot"><a href="#/programacao">${pode('voo') ? 'Cadastrar e editar voos →' : 'Ver voos e passageiros →'}</a></div>` : ''}</div>`;
   }
   function totalsBox(s) {
@@ -392,6 +417,8 @@
       const d = addDays(s, i);
       DB.team.forEach(p => { if (statusOn(p, d) === 'F') folgas.push([d, p.name]); });
     }
+    // indicadores do ciclo (total de voos, horas, evolução): só para quem acessa a tela Voos (não para o Balcão)
+    if (!pode('registros') && !window.SEED_DEV) return `<div class="dash-grid"><div>${flightBoard(s, true)}</div><div>${escalaDia(s, true)}</div></div>`;
     return `<div class="dash-grid">
         <div>${flightBoard(s, true)}${totalsBox(s)}
           <div class="foot-note"><span>Resultados realizados · Ciclo ${cycleLabel(c)}</span><a href="#/voos">Registrar voos →</a></div></div>
@@ -487,8 +514,10 @@
     toast(`Voo ${v.codigo || v.hora}: ${a.nome}...`);
     // 1º o aviso sonoro (na hora do toque), enquanto a voz é gerada; 2º o texto falado, depois que o som termina
     const fimGongo = tocaGongo(audioCtx, ex);
-    const pub = api('/acao', { method: 'POST', body: JSON.stringify({ tipo: 'aviso', id, aviso: a.aviso, texto: a.aviso === 'geral' ? textosChamada(v)[0] : '', fala: true }) })
-      .then(r => { ex.avisoId = r && r.resultado && r.resultado.id; if (ex.terminou) fimAvisoSino(ex); return null; }, e => e);
+    // a TV mostra o aviso só durante a fala: publica quando as vozes ficam prontas e tira quando a fala termina
+    let pub = Promise.resolve(null);
+    const publica = () => { pub = api('/acao', { method: 'POST', body: JSON.stringify({ tipo: 'aviso', id, aviso: a.aviso, texto: a.aviso === 'geral' ? textosChamada(v)[0] : '', fala: true }) })
+      .then(r => { ex.avisoId = r && r.resultado && r.resultado.id; if (ex.terminou) fimAvisoSino(ex); return null; }, e => e); };
     try {
       const bufs = await Promise.all(textosChamada(v).map(texto => api('/tts', { method: 'POST', body: JSON.stringify({ texto, velocidade: 0.95 }) })
         .then(d => { const bin = atob(d.audioContent), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; })
@@ -497,6 +526,7 @@
       await audioCtx.resume();
       let t = Math.max(await fimGongo + 0.5, audioCtx.currentTime + 0.1), ultima = null;
       if (ex.cancelado) return;
+      publica();
       bufs.forEach(b => { const s = audioCtx.createBufferSource(); s.buffer = b; s.connect(audioCtx.destination); s.start(t); t += b.duration + 0.7; ex.fontes.push(s); ultima = s; });
       ultima.onended = () => { fimAvisoSino(ex); if (anuncio === ex) { anuncio = null; render(); } };
     } catch (e) {
@@ -564,7 +594,7 @@
               <label class="obs-tv"><input type="checkbox" name="obsTv" ${f.obsTv ? 'checked' : ''}> Mostrar no Painel de Status (TV)</label></div>
             <button class="btn primary" style="width:100%;justify-content:center">${progEdit ? 'Salvar alterações' : 'Cadastrar voo'}</button>
             ${progEdit ? '<button type="button" class="btn" id="cancelEdit" style="width:100%;justify-content:center;margin-top:8px">Cancelar edição</button>' : ''}
-          </form>` : `<div class="section-title" style="margin-top:0">Seu acesso</div><div class="card pad muted small">Perfil <b>${esc(OPS.operador?.perfilNome || '')}</b>: ${pode('pax') ? 'consulta os voos, faz o check-in dos passageiros e troca a cor da pulseira. Horário, status e cadastro de voos ficam com a operação.' : 'consulta os voos e passageiros, sem alterar.'}</div>`}
+          </form>` : `<div class="section-title" style="margin-top:0">Seu acesso</div><div class="card pad muted small">Perfil <b>${esc(OPS.operador?.perfilNome || '')}</b>: ${pode('pax') ? 'consulta os voos, faz o check-in dos passageiros e troca a cor da pulseira. Horário e PAX: pela edição rápida do Dashboard. Status e cadastro de voos ficam com a operação.' : 'consulta os voos e passageiros, sem alterar.'}</div>`}
           ${pode('config') ? `<div class="section-title">TV da sala de espera</div>
           <div class="card pad"><label class="f">Voos exibidos ao mesmo tempo</label>
             <div class="stepper"><input class="input" id="tvVoos" type="number" min="1" max="12" value="${OPS.config.tvVoos}"><button class="btn" id="saveTv">Salvar</button></div></div>` : ''}
@@ -939,7 +969,7 @@
     const max = Math.max(1, ...rank.map(r => r.valor)), maxQ = Math.max(1, ...rank.map(r => r.qtd));
     const ciclos = [-5, -4, -3, -2, -1, 0].map(n => shiftCycle(k, n));
     return `<div class="page-head"><div><h1>Venda de câmeras</h1><p>GoPro e 360° · comissão automática de 10% sobre o valor vendido.</p></div>
-        <button class="btn primary" id="newSale">${icon('plus')} Registrar venda</button></div>
+        ${pode('venda') || window.SEED_DEV ? `<button class="btn primary" id="newSale">${icon('plus')} Registrar venda</button>` : ''}</div>
       <div class="period"><button class="icon-btn ghost" data-cm="-1">${icon('left')}</button><div class="mid">Ciclo ${cycleLabel(k)}<small>${isCur ? 'Ciclo atual' : 'Ciclo selecionado'}</small></div><button class="icon-btn ghost" data-cm="1">${icon('right')}</button></div>
       <div class="section-title">Indicadores do ciclo</div>
       <div class="grid g3">
@@ -962,11 +992,11 @@
       <div class="section-title">Vendas registradas</div>
       ${sales.length ? `<div class="list">${sales.map(v => `<div class="item"><div class="grow"><div class="title">${v.qtd} × ${MODELOS[v.modelo]} · ${money(v.valor)}</div>
           <div class="meta">${br(v.date)} · ${esc(pname(v.vendedor))} · comissão ${money(v.valor * 0.1)}</div></div>
-          <button class="icon-btn ghost" data-edit="${v.id}" aria-label="Editar">${icon('pencil')}</button><button class="icon-btn ghost" data-del="${v.id}" aria-label="Excluir">${icon('trash')}</button></div>`).join('')}</div>`
+          ${pode('venda') || window.SEED_DEV ? `<button class="icon-btn ghost" data-edit="${v.id}" aria-label="Editar">${icon('pencil')}</button><button class="icon-btn ghost" data-del="${v.id}" aria-label="Excluir">${icon('trash')}</button>` : ''}</div>`).join('')}</div>`
         : `<div class="empty">Nenhuma venda registrada no ciclo ${cycleLabel(k)}.</div>`}`;
   }
   function saleModal(id) {
-    const v = DB.vendas.find(x => x.id === id) || { date: today() >= camCycle.start && today() <= camCycle.end ? today() : camCycle.start, modelo: 'GoPro', vendedor: DB.team[0]?.id, qtd: 1, valor: 0 };
+    const v = vendas().find(x => x.id === id) || { date: today() >= camCycle.start && today() <= camCycle.end ? today() : camCycle.start, modelo: 'GoPro', vendedor: DB.team[0]?.id, qtd: 1, valor: 0 };
     modal(id ? 'Editar venda' : 'Registrar venda', 'Informe o valor total efetivamente vendido.', `<form id="saleForm">
         <div class="row2"><div><label class="f">Data da venda</label><input class="input" type="date" name="date" value="${v.date}" required></div>
           <div><label class="f">Modelo da câmera</label><select class="input" name="modelo">${Object.entries(MODELOS).map(([k, l]) => `<option value="${k}" ${v.modelo === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
@@ -983,19 +1013,19 @@
       f.onsubmit = e => {
         e.preventDefault();
         if (val() <= 0) return toast('Informe o valor vendido');
-        const data = { date: f.date.value, modelo: f.modelo.value, vendedor: f.vendedor.value, qtd: Math.max(1, +f.qtd.value || 1), valor: val() };
-        if (id) Object.assign(DB.vendas.find(x => x.id === id), data); else DB.vendas.push({ id: uid(), ...data });
-        camCycle = cycleOf(data.date); close(); toast('Venda salva'); save();
+        const data = { id: id || uid(), date: f.date.value, modelo: f.modelo.value, vendedor: f.vendedor.value, qtd: Math.max(1, +f.qtd.value || 1), valor: val() };
+        const btn = f.querySelector('.primary'); btn.disabled = true;
+        acaoOps({ tipo: 'venda_salvar', venda: data }, 'Venda salva').then(r => { btn.disabled = false; if (r) { camCycle = cycleOf(data.date); close(); render(); } });
       };
     });
   }
   function bindCameras(root) {
     root.querySelectorAll('[data-cm]').forEach(b => b.onclick = () => { camCycle = shiftCycle(camCycle, +b.dataset.cm); render(); });
-    root.querySelector('#newSale').onclick = () => saleModal();
+    const nova = root.querySelector('#newSale'); if (nova) nova.onclick = () => saleModal();
     root.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => saleModal(b.dataset.edit));
     root.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
       if (!confirm('Excluir esta venda?')) return;
-      DB.vendas = DB.vendas.filter(v => v.id !== b.dataset.del); save();
+      acaoOps({ tipo: 'venda_excluir', vendaId: b.dataset.del }, 'Venda excluída');
     });
   }
 
@@ -1021,7 +1051,7 @@
     adm: 'controle completo: voos, PAX, avisos, escala e comissões, histórico, usuários e configurações',
     gestao: 'visualização geral: voos, passageiros, resultados, escala, comissões e histórico, sem alterar',
     operacional: 'cadastra, edita e gerencia voos, PAX, avisos (Central) e registros de voos',
-    balcao: 'consulta voos e passageiros, faz o check-in e troca a cor da pulseira, sem alterar horário ou status'
+    balcao: 'consulta voos e passageiros, faz o check-in, troca a cor da pulseira e ajusta horário e PAX no Dashboard; não altera status nem vê os indicadores do ciclo'
   };
   const perfilDe = o => (PERFIS[o.perfil] ? o.perfil : o.admin ? 'adm' : o.auditor ? 'gestao' : 'operacional');
   const perfilBody = v => ({ perfil: v });

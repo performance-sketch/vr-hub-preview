@@ -411,15 +411,15 @@ var ENCERRAMENTO_REF = {"pt": "Bom voo.", "en": "Have a nice flight.", "es": "Bu
 var MODELOS_EMBUTIDOS = [
   {id:'voo', nome:'Chamada de voo', fixo:true, textos:MODELO},
   {id:'inicio5', nome:'Início em 5 minutos', fixo:true, textos:{
-    pt:'Atenção, passageiros do voo das {horario}, pulseira {cor}. O voo terá início em cinco minutos. Por favor, dirijam-se à sala {sala}.',
-    en:'Attention, passengers on the {horario} flight, {cor} wristband. Your flight will begin in five minutes. Please proceed to room {sala}.',
-    es:'Atención, pasajeros del vuelo {horario}, pulsera {cor}. El vuelo comenzará en cinco minutos. Por favor, diríjanse a la sala {sala}.',
-    fr:'Attention, passagers du vol de {horario}, bracelet {cor}. Le vol commencera dans cinq minutes. Veuillez vous rendre à la salle {sala}.',
-    de:'Achtung, Passagiere des Flugs um {horario}, Armband {cor}. Der Flug beginnt in fünf Minuten. Bitte begeben Sie sich zu Raum {sala}.',
-    nl:'Attentie, passagiers van de vlucht van {horario}, polsbandje {cor}. De vlucht begint over vijf minuten. Gaat u alstublieft naar zaal {sala}.',
-    ar:'انتباه، ركاب رحلة الساعة {horario}، السوار {cor}. ستبدأ الرحلة خلال خمس دقائق. يرجى التوجه إلى القاعة رقم {sala}.',
-    zh:'请注意，{horario}航班、{cor}腕带的乘客，航班将在五分钟后开始，请前往{sala}号厅。',
-    it:'Attenzione, passeggeri del volo delle {horario}, braccialetto {cor}. Il volo inizierà tra cinque minuti. Si prega di recarsi alla sala {sala}.'}},
+    pt:'Atenção, passageiros do voo das {horario}, pulseira {cor}. O voo terá início em cinco minutos.',
+    en:'Attention, passengers on the {horario} flight, {cor} wristband. Your flight will begin in five minutes.',
+    es:'Atención, pasajeros del vuelo {horario}, pulsera {cor}. El vuelo comenzará en cinco minutos.',
+    fr:'Attention, passagers du vol de {horario}, bracelet {cor}. Le vol commencera dans cinq minutes.',
+    de:'Achtung, Passagiere des Flugs um {horario}, Armband {cor}. Der Flug beginnt in fünf Minuten.',
+    nl:'Attentie, passagiers van de vlucht van {horario}, polsbandje {cor}. De vlucht begint over vijf minuten.',
+    ar:'انتباه، ركاب رحلة الساعة {horario}، السوار {cor}. ستبدأ الرحلة خلال خمس دقائق.',
+    zh:'请注意，{horario}航班、{cor}腕带的乘客，航班将在五分钟后开始。',
+    it:'Attenzione, passeggeri del volo delle {horario}, braccialetto {cor}. Il volo inizierà tra cinque minuti.'}},
   {id:'livre', nome:'Anúncio personalizado', fixo:true, livre:true, textos:{pt:''}}
 ];
 var COR_HEX = {branca:'#ffffff', preta:'#231F20', amarela:'#f5c400', verde:'#2e9d4f', azul:'#2f6fdf'};
@@ -763,7 +763,7 @@ if(typeof module!=='undefined'){ module.exports={ENCERRAMENTO_REF:ENCERRAMENTO_R
     if(!sessao.ok){ trava(); return; }
     var sot=ler(LS.sotaque,'es-ES'), vel=parseFloat(ler(LS.vel,'0.95'))||0.95;
     var ac=audio();
-    var ex={id:++execSeq, fontes:[], timer:null, cancelado:false, ctrl:(typeof AbortController!=='undefined') ? new AbortController() : null};
+    var ex={id:++execSeq, aoFalar:window.__vrAoFalar||null, fontes:[], timer:null, cancelado:false, ctrl:(typeof AbortController!=='undefined') ? new AbortController() : null};
     var sinal=ex.ctrl ? ex.ctrl.signal : undefined;
     execAtual=ex; estado.ocupado=true; modoParar(true); st('','Preparando as vozes...');
     var plano;
@@ -796,6 +796,8 @@ if(typeof module!=='undefined'){ module.exports={ENCERRAMENTO_REF:ENCERRAMENTO_R
       if(ex.cancelado || execAtual!==ex) return;
       if(!rodando){ fimExec(ex); st('erro','O som está bloqueado pelo navegador. Toque no botão novamente para liberar o som.'); return; }
       st(erros.length?'erro':'ok', erros.length ? 'Falando os outros idiomas. Não foi possível:\n'+erros.join('\n') : 'Falando...');
+      /* "Falar e publicar na TV": o aviso vai para a TV só agora, quando a fala começa (e sai quando ela termina) */
+      if(ex.aoFalar){ try{ ex.aoFalar(); }catch(e){} }
       coletorFontes=ex.fontes; var fimGongo;
       try{ fimGongo=agendaGongo(ac, ac.currentTime+0.1, gTipo)+0.2; } finally { coletorFontes=null; }
       /* cada fala só começa quando a anterior (ou o gongo) terminou de verdade: nunca simultâneo */
@@ -1012,7 +1014,9 @@ if(typeof module!=='undefined'){ module.exports={ENCERRAMENTO_REF:ENCERRAMENTO_R
     if($('falar').classList.contains('parar')) return;
     if(!$('tvVoo').value && $('tvTipo').value!=='personalizado'){ info('Escolha o voo em "Aviso na TV da sala de espera" para falar e publicar na TV.', true); $('tvVoo').focus(); $('tvSec').scrollIntoView({behavior:'smooth',block:'center'}); return; }
     if(!$('texto').value.trim()){ $('falar').click(); return; }
-    window.__vrFalaTv=true; publicar(); window.__vrFalaTv=false; $('falar').click();
+    /* publica quando a fala começar de verdade (depois de gerar as vozes); se falhar ou for cancelada antes, a TV não muda */
+    window.__vrAoFalar=function(){ window.__vrFalaTv=true; publicar(); window.__vrFalaTv=false; };
+    try{ $('falar').click(); } finally { window.__vrAoFalar=null; }
   };
   /* avisa o servidor quando a fala termina (ou é interrompida): a TV fecha o alerta nessa hora */
   var avisoPend=null;
