@@ -75,6 +75,10 @@
   #painel label{display:block;font-size:14px;font-weight:600;margin:24px 0 8px}
   #painel input[type=password],#painel select{width:100%;border:none;background:var(--campo);border-radius:12px;padding:12px 14px;font-size:16px;outline:none}
   #painel small{display:block;color:var(--suave);font-size:13px;margin-top:8px}
+  #painel .tempoTv{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:15px}
+  #painel .tempoTv span:first-child{flex:1}
+  #painel .tempoTv span:last-child{color:var(--suave);font-size:13px}
+  #painel .tempoTv input{width:90px;border:none;background:var(--campo);border-radius:12px;padding:10px 12px;font-size:16px;outline:none;text-align:right;color:inherit}
   .gongo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--linha)}
   .gongo label{margin:0!important;font-weight:400!important;display:flex!important;align-items:center;gap:10px;cursor:pointer;font-size:15px!important}
   .gongo button{border:none;background:var(--campo);border-radius:999px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
@@ -245,7 +249,12 @@
   <select id="sotaque"><option value="es-ES">Espanha (es-ES)</option><option value="es-US">América Latina (es-US)</option></select>
   <label for="vel">Velocidade da fala: <span id="velTxt">0.95</span></label>
   <input id="vel" type="range" min="0.75" max="1.2" step="0.05" value="0.95" style="width:100%">
-  <small>Voz Chirp 3 HD escolhida acima, a mesma nos 9 idiomas.</small>
+  <small>Voz Chirp 3 HD escolhida acima, a mesma nos 10 idiomas.</small>
+  <label>Tempo do aviso na TV</label>
+  <div class="tempoTv"><span>Início em 5 minutos</span><input id="tempoInicio5" type="number" min="10" max="600" step="5" inputmode="numeric" aria-label="Segundos do aviso Início em 5 minutos na TV"><span>segundos</span></div>
+  <div class="tempoTv"><span>Embarque</span><input id="tempoEmbarque" type="number" min="10" max="600" step="5" inputmode="numeric" aria-label="Segundos do aviso de embarque na TV"><span>segundos</span></div>
+  <div class="linhaBt"><button class="sec" id="salvarTempos" type="button">Salvar tempos</button></div>
+  <small id="temposInfo">Vale para a TV da sala de espera (todas as telas). Padrão: 60 s e 180 s. Depois do tempo, a TV volta para a lista de próximos voos. Os outros avisos ficam só enquanto a voz fala.</small>
   <p id="statusCfg" class="dica"></p>
 </aside>
 
@@ -284,14 +293,15 @@ var IDIOMAS = [
   {c:'fr', nome:'Francês', rot:'FR', tts:'fr-FR', tr:'fr', html:'fr'},
   {c:'de', nome:'Alemão', rot:'DE', tts:'de-DE', tr:'de', html:'de'},
   {c:'nl', nome:'Holandês', rot:'NL', tts:'nl-NL', tr:'nl', html:'nl'},
-  {c:'ar', nome:'Árabe padrão', rot:'AR', tts:'ar-XA', tr:'ar', html:'ar', rtl:true},
+  {c:'ru', nome:'Russo', rot:'RU', tts:'ru-RU', tr:'ru', html:'ru'},
   {c:'zh', nome:'Mandarim', rot:'ZH', tts:'cmn-CN', tr:'zh-CN', html:'zh-CN'},
-  {c:'it', nome:'Italiano', rot:'IT', tts:'it-IT', tr:'it', html:'it'}
+  {c:'it', nome:'Italiano', rot:'IT', tts:'it-IT', tr:'it', html:'it'},
+  {c:'ja', nome:'Japonês', rot:'JA', tts:'ja-JP', tr:'ja', html:'ja'}
 ];
 var COD = IDIOMAS.map(function(i){ return i.c; });
 function info(c){ for(var i=0;i<IDIOMAS.length;i++) if(IDIOMAS[i].c===c) return IDIOMAS[i]; return null; }
 
-/* Voz: Chirp 3 HD Sulafat (feminina) nos 9 idiomas. O russo saiu da lista (não há Sulafat em russo) e entrou o italiano.
+/* Voz: Chirp 3 HD Sulafat (feminina) nos 10 idiomas. (A fala hoje é gerada pela ElevenLabs, que tem russo e japonês: em 13/11/2026 o árabe saiu e entraram russo e japonês.)
    Se algum idioma futuro não tiver a Sulafat, ponha aqui a voz feminina usada no lugar. */
 var VOZ_PADRAO = 'Sulafat';
 var VOZ_SUBSTITUTA = {};
@@ -305,11 +315,11 @@ function voz(c, sotaque, genero){
   return {lang:lang, name:lang+'-Chirp3-HD-'+v, substituta:!!VOZ_SUBSTITUTA[c]};
 }
 
-var CORES_PADRAO = 'branca | white | blanca | blanc | weiß | wit | أبيض | 白色 | bianco\n'+
-                   'preta | black | negra | noir | schwarz | zwart | أسود | 黑色 | nero\n'+
-                   'amarela | yellow | amarilla | jaune | gelb | geel | أصفر | 黄色 | giallo\n'+
-                   'verde | green | verde | vert | grün | groen | أخضر | 绿色 | verde\n'+
-                   'azul | blue | azul | bleu | blau | blauw | أزرق | 蓝色 | blu';
+var CORES_PADRAO = 'branca | white | blanca | blanc | weiß | wit | белый | 白色 | bianco | 白\n'+
+                   'preta | black | negra | noir | schwarz | zwart | чёрный | 黑色 | nero | 黒\n'+
+                   'amarela | yellow | amarilla | jaune | gelb | geel | жёлтый | 黄色 | giallo | 黄色\n'+
+                   'verde | green | verde | vert | grün | groen | зелёный | 绿色 | verde | 緑\n'+
+                   'azul | blue | azul | bleu | blau | blauw | синий | 蓝色 | blu | 青';
 var CORES_VERSAO = '3';
 function splitCores(txt){
   return String(txt||'').split('\n').map(function(l){return l.split('|').map(function(x){return x.trim();});})
@@ -369,6 +379,7 @@ function horaIdioma(c, t){
   if(c==='pt') return horaPT(t.h,t.m);
   if(c==='en') return horaEN(t.h,t.m);
   if(c==='es') return horaES(t.h,t.m);
+  if(c==='ja') return t.h+'時'+(t.m?t.m+'分':'');
   return horaNum(t.h,t.m);
 }
 function parseHora(v){
@@ -384,9 +395,9 @@ var MARCADORES = ['horario','cor'];
 /* {sala}: número da sala falado em cada idioma (seletor Sala 1 / Sala 2) */
 var MARCADORES_OK = ['horario','cor','sala'];
 var SALA_ATUAL = 1;
-var SALA_FALA = {1:{pt:'um',en:'one',es:'uno',fr:'un',de:'eins',nl:'één',ar:'واحد',zh:'一',it:'uno'}, 2:{pt:'dois',en:'two',es:'dos',fr:'deux',de:'zwei',nl:'twee',ar:'اثنان',zh:'二',it:'due'}};
+var SALA_FALA = {1:{pt:'um',en:'one',es:'uno',fr:'un',de:'eins',nl:'één',ru:'один',zh:'一',it:'uno',ja:'1'}, 2:{pt:'dois',en:'two',es:'dos',fr:'deux',de:'zwei',nl:'twee',ru:'два',zh:'二',it:'due',ja:'2'}};
 function salaIdioma(c){ var t=SALA_FALA[SALA_ATUAL]||SALA_FALA[1]; return t[c]||t.en; }
-function trocaSala(t){ return String(t||'').replace(/sala um\b/g,'sala {sala}').replace(/room one\b/g,'room {sala}').replace(/sala uno\b/g,'sala {sala}').replace(/salle un\b/g,'salle {sala}').replace(/Raum eins\b/g,'Raum {sala}').replace(/zaal één/g,'zaal {sala}').replace(/القاعة رقم واحد/g,'القاعة رقم {sala}').replace(/一号厅/g,'{sala}号厅'); }
+function trocaSala(t){ return String(t||'').replace(/sala um\b/g,'sala {sala}').replace(/room one\b/g,'room {sala}').replace(/sala uno\b/g,'sala {sala}').replace(/salle un\b/g,'salle {sala}').replace(/Raum eins\b/g,'Raum {sala}').replace(/zaal één/g,'zaal {sala}').replace(/зал номер один/g,'зал номер {sala}').replace(/1番ルーム/g,'{sala}番ルーム').replace(/一号厅/g,'{sala}号厅'); }
 function marcadoresTexto(t){ return (String(t||'').match(/\{([^{}]*)\}/g)||[]).map(function(x){return x.slice(1,-1);}); }
 function aplicaModelo(tpl, valores){
   return String(tpl).replace(/\{(horario|cor|sala)\}/g, function(_, k){ return valores[k]!=null ? valores[k] : salaIdioma('pt'); }).replace(/\s+/g,' ').trim();
@@ -401,12 +412,13 @@ var MODELO = {
   fr:'Attention, passagers du vol de {horario}, bracelet {cor}. Veuillez vous rendre à la salle {sala}. Bon vol.',
   de:'Achtung, Passagiere des Flugs um {horario}, Armband {cor}. Bitte begeben Sie sich zu Raum {sala}. Guten Flug.',
   nl:'Attentie, passagiers van de vlucht van {horario}, polsbandje {cor}. Gaat u alstublieft naar zaal {sala}. Goede vlucht.',
-  ar:'انتباه، ركاب رحلة الساعة {horario}، السوار {cor}. يرجى التوجه إلى القاعة رقم {sala}. رحلة سعيدة.',
+  ru:'Внимание, пассажиры рейса в {horario}, браслет {cor}. Пожалуйста, пройдите в зал номер {sala}. Приятного полёта.',
   zh:'请注意，{horario}航班、{cor}腕带的乘客，请前往{sala}号厅。祝您旅途愉快。',
-  it:'Attenzione, passeggeri del volo delle {horario}, braccialetto {cor}. Si prega di recarsi alla sala {sala}. Buon volo.'
+  it:'Attenzione, passeggeri del volo delle {horario}, braccialetto {cor}. Si prega di recarsi alla sala {sala}. Buon volo.',
+  ja:'ご案内いたします。{horario}発のフライト、{cor}のリストバンドのお客様は、{sala}番ルームへお進みください。よい空の旅を。'
 };
 /* o encerramento ("Bom voo.") já faz parte do texto de cada idioma acima; não é anexado em separado */
-var ENCERRAMENTO_REF = {"pt": "Bom voo.", "en": "Have a nice flight.", "es": "Buen vuelo.", "fr": "Bon vol.", "de": "Guten Flug.", "nl": "Goede vlucht.", "ar": "رحلة سعيدة.", "zh": "祝您旅途愉快。", "it": "Buon volo."};
+var ENCERRAMENTO_REF = {"pt": "Bom voo.", "en": "Have a nice flight.", "es": "Buen vuelo.", "fr": "Bon vol.", "de": "Guten Flug.", "nl": "Goede vlucht.", "ru": "Приятного полёта.", "zh": "祝您旅途愉快。", "it": "Buon volo.", "ja": "よい空の旅を。"};
 /* modelos embutidos: não podem ser apagados, só duplicados */
 var MODELOS_EMBUTIDOS = [
   {id:'voo', nome:'Chamada de voo', fixo:true, textos:MODELO},
@@ -417,9 +429,10 @@ var MODELOS_EMBUTIDOS = [
     fr:'Attention, passagers du vol de {horario}, bracelet {cor}. Le vol commencera dans cinq minutes.',
     de:'Achtung, Passagiere des Flugs um {horario}, Armband {cor}. Der Flug beginnt in fünf Minuten.',
     nl:'Attentie, passagiers van de vlucht van {horario}, polsbandje {cor}. De vlucht begint over vijf minuten.',
-    ar:'انتباه، ركاب رحلة الساعة {horario}، السوار {cor}. ستبدأ الرحلة خلال خمس دقائق.',
+    ru:'Внимание, пассажиры рейса в {horario}, браслет {cor}. Полёт начнётся через пять минут.',
     zh:'请注意，{horario}航班、{cor}腕带的乘客，航班将在五分钟后开始。',
-    it:'Attenzione, passeggeri del volo delle {horario}, braccialetto {cor}. Il volo inizierà tra cinque minuti.'}},
+    it:'Attenzione, passeggeri del volo delle {horario}, braccialetto {cor}. Il volo inizierà tra cinque minuti.',
+    ja:'ご案内いたします。{horario}発のフライト、{cor}のリストバンドのお客様。フライトはあと5分で始まります。'}},
   {id:'livre', nome:'Anúncio personalizado', fixo:true, livre:true, textos:{pt:''}}
 ];
 var COR_HEX = {branca:'#ffffff', preta:'#231F20', amarela:'#f5c400', verde:'#2e9d4f', azul:'#2f6fdf'};
@@ -1002,11 +1015,11 @@ if(typeof module!=='undefined'){ module.exports={ENCERRAMENTO_REF:ENCERRAMENTO_R
     return {tipo:'aviso', id:id, aviso:tp, texto:(tp==='embarque'||tp==='ultima')?s:''};
   }
   function publicar(){
-    var tp=$('tvTipo').value, id=$('tvVoo').value;
+    var tp=$('tvTipo').value, id=$('tvVoo').value, falando=!!window.__vrFalaTv; /* guarda agora: __vrFalaTv volta a false antes da resposta do servidor */
     if(!id && tp!=='personalizado'){ info('Escolha o voo para publicar na TV.', true); return Promise.resolve(); }
     if(tp==='personalizado' && !$('texto').value.trim()){ info('Escreva o texto do anúncio personalizado.', true); return Promise.resolve(); }
     info('Publicando na TV…');
-    return opsAcao(corpoAviso()).then(function(r){ if(window.__vrFalaTv && r && r.resultado && r.resultado.id) avisoFalando(r.resultado.id); desenha(); info('Publicado na TV da sala de espera: '+opsEsc(TIPOS_TV[tp])+'. '+$('tvInfo').innerHTML); })
+    return opsAcao(corpoAviso()).then(function(r){ if(falando && r && r.resultado && r.resultado.id) avisoFalando(r.resultado.id); desenha(); info('Publicado na TV da sala de espera: '+opsEsc(TIPOS_TV[tp])+'. '+$('tvInfo').innerHTML); })
       .catch(function(e){ if(e.message!=='Login cancelado') info('Não foi possível publicar: '+opsEsc(e.message), true); else desenha(); });
   }
   // botão "Falar e publicar na TV": publica o aviso do voo escolhido e fala o texto (o botão Falar só fala)
@@ -1024,7 +1037,26 @@ if(typeof module!=='undefined'){ module.exports={ENCERRAMENTO_REF:ENCERRAMENTO_R
   function fimAviso(){ if(!avisoPend) return; var id=avisoPend; avisoPend=null; opsAcao({tipo:'aviso_fim', avisoId:id}).catch(function(){}); }
   new MutationObserver(function(){ if(!$('falar').classList.contains('parar')) setTimeout(function(){ if(!$('falar').classList.contains('parar')) fimAviso(); }, 300); })
     .observe($('falar'), {attributes:true, attributeFilter:['class']});
-  opsAcompanhar(desenha, 10);
+  opsAcompanhar(function(){ desenha(); desenhaTempos(); }, 10);
+
+  /* ----- tempo de cada aviso na TV (Configurações): fica no servidor e vale para todas as TVs ----- */
+  var TEMPOS_PADRAO={inicio5:60, embarque:180}, temposEditando=false;
+  function desenhaTempos(){
+    if(temposEditando) return;
+    var t=(OPS.config&&OPS.config.tempos)||{};
+    $('tempoInicio5').value=t.inicio5||TEMPOS_PADRAO.inicio5;
+    $('tempoEmbarque').value=t.embarque||TEMPOS_PADRAO.embarque;
+  }
+  ['tempoInicio5','tempoEmbarque'].forEach(function(id){ $(id).addEventListener('input', function(){ temposEditando=true; }); });
+  $('salvarTempos').onclick=function(){
+    var lim=function(v,p){ v=parseInt(v,10); return isNaN(v)?p:Math.max(10,Math.min(600,v)); };
+    var tempos={inicio5:lim($('tempoInicio5').value,TEMPOS_PADRAO.inicio5), embarque:lim($('tempoEmbarque').value,TEMPOS_PADRAO.embarque)};
+    $('temposInfo').textContent='Salvando…';
+    opsAcao({tipo:'config', tempos:tempos}).then(function(){
+      temposEditando=false; OPS.config=OPS.config||{}; OPS.config.tempos=tempos; desenhaTempos();
+      $('temposInfo').textContent='Tempos salvos: Início em 5 minutos '+tempos.inicio5+' s · Embarque '+tempos.embarque+' s. A TV usa a partir do próximo aviso.';
+    }).catch(function(e){ $('temposInfo').textContent=e.message==='Login cancelado'?'Para salvar, entre como operador.':'Não foi possível salvar: '+e.message; });
+  };
 
   /* ----- voz ElevenLabs ----- */
   var LS_VOZ='vr_eleven_voz', loginPend=null;

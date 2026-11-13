@@ -48,6 +48,15 @@ header{height:250px;padding:56px 64px 0;display:flex;justify-content:space-betwe
 #alerta .txt{margin-top:18px;font-size:32px;font-weight:500}
 body.flash::after{content:"";position:fixed;inset:0;box-shadow:inset 0 0 0 18px #f5c400;pointer-events:none;animation:borda .5s ease-in-out 10 alternate;z-index:19}
 @keyframes borda{to{box-shadow:inset 0 0 0 6px rgba(245,196,0,.3)}}
+/* embarque: a tela inteira pisca 5 s na cor da pulseira do voo (por baixo do cartão do aviso) */
+body.pisca-pulseira::before{content:"";position:fixed;inset:0;background:var(--pisca,#f5c400);box-shadow:inset 0 0 0 18px var(--pisca-borda,transparent);pointer-events:none;z-index:19;opacity:0;animation:piscaPulseira .5s ease-in-out 10 alternate}
+@keyframes piscaPulseira{from{opacity:0}to{opacity:.92}}
+body.pisca-pulseira::after{display:none} /* durante o piscar da pulseira, sem a borda amarela */
+/* cartão na cor da pulseira (chamadas do voo): texto e contorno contrastantes; o contorno separa o cartão do fundo piscando */
+#alerta.cor-pulseira{background:var(--cartao);color:var(--cartao-txt);box-shadow:0 0 0 6px var(--anel),0 40px 120px rgba(0,0,0,.6)}
+#alerta.cor-pulseira .s i{box-shadow:0 0 0 3px var(--anel)}
+#alerta.cor-pulseira.on{animation:piscaCartao .5s ease-in-out 4 alternate}
+@keyframes piscaCartao{to{filter:brightness(1.18)}}
 .amostra{color:#f5f5f7}
 /* observação do voo (Programação → "Mostrar no Painel de Status") */
 .voo .obs{margin-top:12px;font-size:44px;line-height:1.2;font-weight:600;color:#f5c400;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
@@ -163,6 +172,9 @@ function render(){
 }
 
 // anúncios: cada aviso novo pisca a tela e destaca o voo por 5 s, depois volta ao normal
+const CARTAO_PULSEIRA=['embarque','inicio5','ultima','checkin']; // avisos com o cartão na cor da pulseira
+const TEMPO_FIXO={inicio5:60e3,embarque:180e3}; // padrão; a Central pode mudar (config.tempos, em segundos)
+function tempoFixo(tipo){const s=+((OPS.config&&OPS.config.tempos)||{})[tipo];return s>0?s*1000:(TEMPO_FIXO[tipo]||0)}
 const vistos=new Set();let primeira=true,fila=[],mostrando=false;
 function novosAvisos(){
  const limite=Date.now()-2*60e3;
@@ -178,15 +190,27 @@ function proximoAviso(){
  const hm=(a.sub||'').match(/(\d{1,2})h(\d{2})\s*$/),hora=(v&&v.hora)||(hm?hm[1].padStart(2,'0')+':'+hm[2]:''),sub=(a.sub||'').replace(/\s*·\s*\d{1,2}h\d{2}\s*$/,'');
  al.innerHTML=`<div class="k">${tx[0]}</div>${hora?`<div class="v">${opsEsc(hora)}</div>`:''}<div class="t">${tx[1]}</div>
   ${sub?`<div class="s">${a.pulseira?`<i style="background:${OPS_PULSEIRAS[a.pulseira]}"></i>`:''}${opsEsc(sub)}${a.pulseira?` · pulseira ${TX.pt.cor[a.pulseira].toLowerCase()}`:''}</div>`:''}
-  <div class="tr">${tx[2]}${hora?' · Flight '+opsEsc(hora):''}<br>${tx[3]}${hora?' · Vuelo '+opsEsc(hora):''}</div>${a.texto?`<div class="txt">${opsEsc(a.texto)}</div>`:''}`;
+  <div class="tr">${tx[2]}<br>${tx[3]}</div>${a.texto?`<div class="txt">${opsEsc(a.texto)}</div>`:''}`;
  destaque=v?v.id:null;render();
+ // chamadas do voo: cartão na cor da pulseira; atraso, cancelamento e avisos gerais continuam amarelos
+ const pul=a.pulseira||(v&&v.pulseira),b=document.body;let tPisca=null;
+ al.classList.remove('cor-pulseira');
+ if(CARTAO_PULSEIRA.includes(a.tipo)&&OPS_PULSEIRAS[pul]){const claro=pul==='BRANCA'||pul==='AMARELA';
+  al.style.setProperty('--cartao',OPS_PULSEIRAS[pul]);al.style.setProperty('--cartao-txt',claro?'#141213':'#ffffff');
+  al.style.setProperty('--anel',claro?'rgba(20,18,19,.85)':'rgba(255,255,255,.9)');al.classList.add('cor-pulseira')}
  document.body.classList.add('flash');al.classList.add('on');
- const ini=Date.now(),fecha=()=>{al.classList.remove('on');document.body.classList.remove('flash');destaque=null;render();setTimeout(proximoAviso,600)};
- // 2.2: aviso falado fica na tela só enquanto a Central/Dashboard fala; some assim que a fala termina
+ // embarque: pisca 5 s na cor da pulseira (pulseira preta: fundo preto com borda branca para aparecer)
+ if(a.tipo==='embarque'&&OPS_PULSEIRAS[pul]){b.style.setProperty('--pisca',OPS_PULSEIRAS[pul]);b.style.setProperty('--pisca-borda',pul==='PRETA'?'#ffffff':'transparent');
+  b.classList.remove('pisca-pulseira');void b.offsetWidth;b.classList.add('pisca-pulseira');tPisca=setTimeout(()=>b.classList.remove('pisca-pulseira'),5000)}
+ const ini=Date.now(),fecha=()=>{clearTimeout(tPisca);b.classList.remove('pisca-pulseira');al.classList.remove('on');b.classList.remove('flash');destaque=null;render();setTimeout(proximoAviso,600)};
+ // tempo fixo na tela (configurável na Central): "Início em 5 minutos" 1 min, embarque 3 min por padrão
+ // (um aviso novo que chegar antes entra no lugar depois de 5 s); ao terminar, volta à lista de próximos voos
+ const fixo=tempoFixo(a.tipo);
+ // 2.2: os demais avisos falados ficam na tela só enquanto a Central/Dashboard fala; somem assim que a fala termina
  // (confere o servidor a cada 1 s enquanto o alerta está aberto). Aviso sem fala: 5 s. Limite de segurança: 3 min.
  let ultimaBusca=0;
  const espera=()=>{const atual=(OPS.avisos||[]).find(x=>x.id===a.id)||a,dt=Date.now()-ini;
-  if(dt>=180e3||(a.fala?(atual.fim&&dt>=1500):dt>=5000))return fecha();
+  if(fixo?(dt>=fixo||(fila.length&&dt>=5000)):(dt>=180e3||(a.fala?(atual.fim&&dt>=1500):dt>=5000)))return fecha();
   if(a.fala&&Date.now()-ultimaBusca>=1000){ultimaBusca=Date.now();opsCarregar(false).then(m=>{if(m)render()})}
   setTimeout(espera,400)};
  setTimeout(espera,400);
@@ -201,5 +225,9 @@ function trocaIdioma(){ // fade out (0,5 s) → troca o texto → fade in
   requestAnimationFrame(()=>requestAnimationFrame(()=>b.classList.remove('trocando')))},500)}
 setInterval(()=>{if(!param('idioma')&&!mostrando)trocaIdioma()},IDIOMA_SEG*1000);
 setInterval(()=>{if(!mostrando)render()},30000); // tira da lista os cancelados antigos sem esperar mudança no servidor
+// versão nova publicada: a TV se recarrega sozinha (confere a cada 2 min, nunca no meio de um aviso)
+let versaoTv=null;
+const confereVersao=()=>fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():null).then(t=>{if(!t)return;if(versaoTv===null)versaoTv=t;else if(t!==versaoTv&&!mostrando)location.reload()}).catch(()=>{});
+confereVersao();setInterval(confereVersao,120e3);
 render();
 </script></body></html>

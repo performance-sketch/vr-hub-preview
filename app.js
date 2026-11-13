@@ -603,14 +603,15 @@
           ${list.length ? `<div class="list">${list.map(v => `<div class="item" style="flex-wrap:wrap">
               <span class="f-time">${v.hora}</span>
               <div class="grow"><div class="title" style="display:flex;align-items:center;gap:8px"><span class="muted small">${v.codigo}</span><span class="swatch" style="background:${FITAS[v.pulseira]}"></span>${v.pulseira}</div>
-                <div class="meta">${v.pax} PAX · ${PRODUTOS[v.produto]} · ${v.tipo}${v.obs ? ` · ${esc(v.obs)}` : ''}</div></div>
-              ${v.obs && pode('voo') ? `<button class="btn tv-obs ${v.obsTv ? 'on' : ''}" data-obstv="${v.id}" title="${v.obsTv ? 'A observação aparece no Painel de Status. Clique para esconder.' : 'Clique para a observação aparecer no Painel de Status.'}">${icon('tv')} ${v.obsTv ? 'Na TV' : 'Mostrar na TV'}</button>` : ''}
+                <div class="meta">${v.pax} PAX · ${PRODUTOS[v.produto]} · ${v.tipo}</div></div>
               ${badge(v.status)}
               ${pode('voo') ? `<select class="input" style="width:150px" data-status="${v.id}">${STATUS.map(s => `<option ${s === v.status ? 'selected' : ''}>${s}</option>`).join('')}</select>`
                 : pode('pulseira') ? `<select class="input" style="width:130px" data-pulseira="${v.id}" aria-label="Pulseira do voo ${v.codigo}">${Object.keys(FITAS).map(k => `<option value="${k}" ${k === v.pulseira ? 'selected' : ''}>${k}</option>`).join('')}</select>` : ''}
               <button class="icon-btn" data-paxopen="${v.id}" title="Passageiros" aria-label="Passageiros">${icon('users')}</button>
               ${pode('voo') ? `<button class="icon-btn" data-edit="${v.id}" aria-label="Editar">${icon('pencil')}</button>
               <button class="icon-btn" data-del="${v.id}" aria-label="Excluir">${icon('trash')}</button>` : ''}
+              ${v.obs ? `<div class="prog-obs"><span class="prog-obs-txt">${esc(v.obs)}</span>
+                ${pode('voo') ? `<button class="btn tv-obs ${v.obsTv ? 'on' : ''}" data-obstv="${v.id}" title="${v.obsTv ? 'A observação aparece no Painel de Status. Clique para esconder.' : 'Clique para a observação aparecer no Painel de Status.'}">${icon('tv')} ${v.obsTv ? 'Na TV' : 'Mostrar na TV'}</button>` : ''}</div>` : ''}
               ${progOpen === v.id ? paxPanel(v) : ''}</div>`).join('')}</div>`
             : `<div class="empty">${OPS.erro ? 'Sem conexão com o servidor de voos.' : 'Nenhum voo programado para este dia.'}</div>`}
         </div>

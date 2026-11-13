@@ -360,6 +360,11 @@ body.tv .tv-main { min-height: calc(100vh - 64px); align-items: start; }
 /* observação no Painel de Status (Programação) */
 .obs-tv { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; color: var(--muted-fg); cursor: pointer; }
 .obs-tv input { width: 16px; height: 16px; accent-color: var(--accent); }
+/* Programação: observação do voo numa linha própria, abaixo dos dados (não divide espaço com status e botões) */
+.prog-grid .list .grow { min-width: 140px; }
+.prog-obs { flex-basis: 100%; display: flex; align-items: center; gap: 12px; margin-left: 84px; padding: 10px 14px; border-radius: 10px; background: var(--muted); }
+.prog-obs-txt { flex: 1; min-width: 0; font-size: 14px; line-height: 1.45; color: var(--fg); white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .prog-obs { margin-left: 0; flex-wrap: wrap; } }
 .btn.tv-obs { font-size: 12px; padding: 6px 12px; gap: 6px; }
 .btn.tv-obs svg.i { width: 15px; height: 15px; }
 .btn.tv-obs.on { background: var(--accent-soft); color: var(--accent); }
