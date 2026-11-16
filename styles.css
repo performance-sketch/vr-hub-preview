@@ -347,6 +347,11 @@ body.tv .tv-main { min-height: calc(100vh - 64px); align-items: start; }
 
 /* ---------- Sino, status editável e Central de Avisos ---------- */
 .board .sino { background: rgba(255, 159, 10, .18); color: #a35200; border: 0; border-radius: 9px; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .1s, background .2s; }
+.board .aviso-bts { display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
+.board .tvsino { background: rgba(0, 113, 227, .1); color: var(--accent); border: 0; border-radius: 9px; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background .15s, transform .1s; }
+.board .tvsino:hover { background: rgba(0, 113, 227, .2); } .board .tvsino:active { transform: scale(.92); }
+.board .tvsino.on { background: var(--accent); color: #fff; }
+.board .tvsino svg.i { width: 18px; height: 18px; }
 .board .sino:hover { background: rgba(255, 159, 10, .3); } .board .sino:active { transform: scale(.92); }
 .board .sino svg.i { width: 18px; height: 18px; }
 .board .sino.tocando { background: #ff3b30; color: #fff; animation: sinoPulsa 1s ease-in-out infinite; }
@@ -472,7 +477,7 @@ body.tv .tv-main { min-height: calc(100vh - 64px); align-items: start; }
   .board .voo { font-size: 11px; }
   .board .pax { background: none; min-width: 0; padding: 0; font-size: 11px; font-weight: 500; }
   .board .badge, .board select.stsel { width: auto; font-size: 10px; padding: 5px 9px; }
-  .board .sino { width: 30px; height: 30px; } .board .sino svg.i { width: 15px; height: 15px; }
+  .board .sino, .board .tvsino { width: 30px; height: 30px; } .board .sino svg.i, .board .tvsino svg.i { width: 15px; height: 15px; }
   .board .qe-hora { font-size: 15px; width: 64px; padding: 2px 4px; }
   .board .qe-hora::-webkit-calendar-picker-indicator { display: none; }
   .board .qe-pax { width: 44px; font-size: 12px; }
