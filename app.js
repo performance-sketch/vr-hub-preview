@@ -41,7 +41,9 @@
     plus: '<path d="M5 12h14M12 5v14"/>',
     minus: '<path d="M5 12h14"/>',
     x: '<path d="M18 6 6 18M6 6l12 12"/>',
-    user: '<circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/>'
+    user: '<circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+    eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+    eyeoff: '<path d="M10.7 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.9 3.9M6.6 6.6A17.4 17.4 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M2 2l20 20"/>'
   };
   const SETOR_ICON = { gestao: 'cal', coordenacao: 'heli', operacao: 'plane', vendas: 'chart' };
   const icon = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24">${ICONS[n]}</svg>`;
@@ -73,7 +75,8 @@
   function cycleDays(c) { const out = []; for (let s = c.start; s <= c.end; s = addDays(s, 1)) out.push(s); return out; }
 
   const hhmm = min => `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
-  const money = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const fmtMoney = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const money = fmtMoney;
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -438,8 +441,8 @@
         <div class="rank"><b>RANKING DOS VENDEDORES</b><div style="margin-top:12px">${rank.length ? rank.map((r, i) => rankRow(r, i, max)).join('') : '<span class="muted">Nenhuma venda registrada neste mês.</span>'}</div></div>
       </div>`;
   }
-  function rankRow(r, i, max) {
-    return `<div class="rank-row"><div class="top-line"><span class="pos">${i + 1}</span><span class="name">${esc(r.name)}</span><span class="amt">${money(r.valor)}<span class="un">${r.qtd} un.</span></span></div><div class="track"><div class="fill" style="width:${(r.valor / max) * 100}%"></div></div></div>`;
+  function rankRow(r, i, max, fmt = money) {
+    return `<div class="rank-row"><div class="top-line"><span class="pos">${i + 1}</span><span class="name">${esc(r.name)}</span><span class="amt">${fmt(r.valor)}<span class="un">${r.qtd} un.</span></span></div><div class="track"><div class="fill" style="width:${(r.valor / max) * 100}%"></div></div></div>`;
   }
 
   // ---------- Dashboard ----------
@@ -1016,7 +1019,11 @@
   let camCycle = cycleOf(today());
   // modo de edição do card "Comissão individual": as mudanças ficam num rascunho até clicar em Salvar
   let comRascunho = null;
+  // olho dos valores (tela Câmeras): ativo = valores escondidos; fica lembrado neste navegador
+  const OLHO_KEY = 'vrhub_ocultar_valores';
+  let ocultaValores = (() => { try { return localStorage.getItem(OLHO_KEY) === '1'; } catch (e) { return false; } })();
   function pageCameras() {
+    const money = v => (ocultaValores ? 'R$ •••••' : fmtMoney(v));
     const k = camCycle, isCur = k.start === cycleOf(today()).start, sales = salesOf(k).sort((a, b) => b.date.localeCompare(a.date));
     const qtd = sales.reduce((a, v) => a + v.qtd, 0), valor = sales.reduce((a, v) => a + v.valor, 0);
     const gp = sales.filter(v => v.modelo === 'GoPro').reduce((a, v) => a + v.qtd, 0), c360 = qtd - gp;
@@ -1026,7 +1033,8 @@
     const max = Math.max(1, ...rank.map(r => r.valor)), maxQ = Math.max(1, ...rank.map(r => r.qtd));
     const ciclos = [-5, -4, -3, -2, -1, 0].map(n => shiftCycle(k, n));
     return `<div class="page-head"><div><h1>Venda de câmeras</h1><p>GoPro e 360° · comissão automática de 10% sobre o valor vendido.</p></div>
-        ${pode('venda') || window.SEED_DEV ? `<button class="btn primary" id="newSale">${icon('plus')} Registrar venda</button>` : ''}</div>
+        <div class="head-acts"><button class="btn olho${ocultaValores ? ' on' : ''}" id="olhoValores" aria-pressed="${ocultaValores}" title="${ocultaValores ? 'Mostrar valores' : 'Ocultar valores'}" aria-label="${ocultaValores ? 'Mostrar valores' : 'Ocultar valores'}">${icon(ocultaValores ? 'eyeoff' : 'eye')}</button>
+        ${pode('venda') || window.SEED_DEV ? `<button class="btn primary" id="newSale">${icon('plus')} Registrar venda</button>` : ''}</div></div>
       <div class="period"><button class="icon-btn ghost" data-cm="-1">${icon('left')}</button><div class="mid">Ciclo ${cycleLabel(k)}<small>${isCur ? 'Ciclo atual' : 'Ciclo selecionado'}</small></div><button class="icon-btn ghost" data-cm="1">${icon('right')}</button></div>
       <div class="section-title">Indicadores do ciclo</div>
       <div class="grid g3">
@@ -1035,7 +1043,7 @@
         <div class="card pad stat"><div class="label">Comissão da equipe</div><div class="value">${money(valor * 0.1)}</div></div>
       </div>
       <div class="grid g2" style="gap:32px">
-        <div><div class="section-title">Ranking de vendedores do ciclo</div><div class="card pad">${anySale ? rank.map((r, i) => rankRow(r, i, max)).join('') : '<div class="empty">Nenhuma venda neste ciclo.</div>'}</div></div>
+        <div><div class="section-title">Ranking de vendedores do ciclo</div><div class="card pad">${anySale ? rank.map((r, i) => rankRow(r, i, max, money)).join('') : '<div class="empty">Nenhuma venda neste ciclo.</div>'}</div></div>
         <div><div class="section-title" style="display:flex;align-items:center;gap:8px">Comissão individual${podeCom && !editaCom ? `<button class="btn" id="comEdit" style="margin-left:auto">${icon('pencil')} Editar</button>` : ''}</div><div class="card"><table class="tbl"><thead><tr><th>Vendedor</th><th>Un.</th><th>Vendido</th><th>Comissão</th>${editaCom ? '<th></th>' : ''}</tr></thead>
           <tbody>${linhasCom.filter(r => !r.fora).map(r => `<tr><td>${esc(r.name)}</td><td>${r.qtd}</td><td>${money(r.valor)}</td><td><b>${money(r.com)}</b></td>${editaCom ? `<td style="width:1%"><button class="icon-btn ghost" data-crm="${esc(r.id)}" aria-label="Remover ${esc(r.name)}">${icon('trash')}</button></td>` : ''}</tr>`).join('') || `<tr><td colspan="${editaCom ? 5 : 4}" class="muted">Nenhuma pessoa na lista.</td></tr>`}</tbody></table>
           ${editaCom ? `<div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="comAdd">${icon('plus')} Adicionar pessoa</button>
@@ -1101,6 +1109,8 @@
     });
   }
   function bindCameras(root) {
+    const olho = root.querySelector('#olhoValores');
+    if (olho) olho.onclick = () => { ocultaValores = !ocultaValores; try { localStorage.setItem(OLHO_KEY, ocultaValores ? '1' : '0'); } catch (e) { /* */ } render(); };
     root.querySelectorAll('[data-cm]').forEach(b => b.onclick = () => { camCycle = shiftCycle(camCycle, +b.dataset.cm); render(); });
     const nova = root.querySelector('#newSale'); if (nova) nova.onclick = () => saleModal();
     const ed = root.querySelector('#comEdit'); if (ed) ed.onclick = () => { comRascunho = comissaoLista().map(p => ({ ...p })); render(); };
