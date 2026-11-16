@@ -205,7 +205,8 @@ function proximoAviso(){
  const ini=Date.now(),fecha=()=>{clearTimeout(tPisca);b.classList.remove('pisca-pulseira');al.classList.remove('on');b.classList.remove('flash');destaque=null;render();setTimeout(proximoAviso,600)};
  // tempo fixo na tela (configurável na Central): "Início em 5 minutos" 1 min, embarque 3 min por padrão
  // (um aviso novo que chegar antes entra no lugar depois de 5 s); ao terminar, volta à lista de próximos voos
- const fixo=tempoFixo(a.tipo);
+ // "Somente publicar na TV" (sem fala): avisos sem tempo configurado ficam 30 s
+ const fixo=tempoFixo(a.tipo)||(a.soTv?30e3:0);
  // 2.2: os demais avisos falados ficam na tela só enquanto a Central/Dashboard fala; somem assim que a fala termina
  // (confere o servidor a cada 1 s enquanto o alerta está aberto). Aviso sem fala: 5 s. Limite de segurança: 3 min.
  let ultimaBusca=0;

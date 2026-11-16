@@ -51,6 +51,9 @@
   #falar{margin-top:14px;background:transparent;color:var(--tinta);box-shadow:inset 0 0 0 2px var(--tinta)}
   body:has(#falar.parar) #falarTv{display:none}
   body:has(#falar.parar) #falar{margin-top:44px}
+  #soTv{display:block;width:100%;margin-top:14px;border:none;border-radius:999px;background:transparent;color:var(--tinta);box-shadow:inset 0 0 0 2px #f5c400;font:inherit;font-size:20px;font-weight:600;letter-spacing:.01em;padding:20px;cursor:pointer;min-height:64px;transition:opacity .2s,transform .1s}
+  #soTv:active{transform:scale(.99)} #soTv:disabled{opacity:.5;cursor:default}
+  body:has(#falar.parar) #soTv,body.falando #soTv{display:none!important}
   #falar.parar{background:#c62828;color:#fff;box-shadow:0 0 0 4px rgba(198,40,40,.22)}
   body.noite #falar.parar{background:#ef5350;color:#fff;box-shadow:0 0 0 4px rgba(239,83,80,.3)}
   button:disabled{opacity:.45;cursor:default}
@@ -198,6 +201,7 @@
 
   <div class="volume"><label for="volume"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>Volume</label><input id="volume" type="range" min="0" max="250" step="5" value="100" aria-describedby="volTxt"><output id="volTxt">100%</output></div>
   <button id="falarTv" type="button">Falar e publicar na TV</button>
+  <button id="soTv" type="button">Somente publicar na TV (sem áudio)</button>
   <button id="falar" type="button">Somente anúncio sonoro (TV não muda)</button>
   <button id="interromper" type="button">Interromper áudio</button>
   <button id="pausar" type="button" aria-pressed="false">Pausar</button>
@@ -1006,7 +1010,7 @@ if(typeof module!=='undefined'){ module.exports={ENCERRAMENTO_REF:ENCERRAMENTO_R
     if(window.__vrCentral && tp!=='personalizado') window.__vrCentral.voo(v.hora, v.pulseira, MODELO_DO_TIPO[tp]);
   };
   function corpoAviso(){
-    var c=corpoAvisoBase(); if(window.__vrFalaTv) c.fala=true; return c;
+    var c=corpoAvisoBase(); if(window.__vrFalaTv) c.fala=true; else if(window.__vrSoTv) c.soTv=true; return c;
   }
   function corpoAvisoBase(){
     var tp=$('tvTipo').value, id=$('tvVoo').value, s='Sala '+sala();
@@ -1030,6 +1034,14 @@ if(typeof module!=='undefined'){ module.exports={ENCERRAMENTO_REF:ENCERRAMENTO_R
     /* publica quando a fala começar de verdade (depois de gerar as vozes); se falhar ou for cancelada antes, a TV não muda */
     window.__vrAoFalar=function(){ window.__vrFalaTv=true; publicar(); window.__vrFalaTv=false; };
     try{ $('falar').click(); } finally { window.__vrAoFalar=null; }
+  };
+  // botão "Somente publicar na TV": publica o aviso sem falar (a TV mostra pelo tempo configurado; demais avisos, 30 s)
+  $('soTv').onclick=function(){
+    if($('falar').classList.contains('parar')) return;
+    if(!$('tvVoo').value && $('tvTipo').value!=='personalizado'){ info('Escolha o voo em "Aviso na TV da sala de espera" para publicar na TV.', true); $('tvVoo').focus(); $('tvSec').scrollIntoView({behavior:'smooth',block:'center'}); return; }
+    var b=$('soTv'); b.disabled=true; window.__vrSoTv=true;
+    var p; try{ p=publicar(); } finally { window.__vrSoTv=false; }
+    Promise.resolve(p).then(function(){ b.disabled=false; });
   };
   /* avisa o servidor quando a fala termina (ou é interrompida): a TV fecha o alerta nessa hora */
   var avisoPend=null;
