@@ -267,7 +267,7 @@
   <div class="tempoTv"><span>Início em 5 minutos</span><input id="tempoInicio5" type="number" min="10" max="600" step="5" inputmode="numeric" aria-label="Segundos do aviso Início em 5 minutos na TV"><span>segundos</span></div>
   <div class="tempoTv"><span>Embarque</span><input id="tempoEmbarque" type="number" min="10" max="600" step="5" inputmode="numeric" aria-label="Segundos do aviso de embarque na TV"><span>segundos</span></div>
   <div class="linhaBt"><button class="sec" id="salvarTempos" type="button">Salvar tempos</button></div>
-  <small id="temposInfo">Vale para a TV da sala de espera (todas as telas). Padrão: 60 s e 180 s. Depois do tempo, a TV volta para a lista de próximos voos. Os outros avisos ficam só enquanto a voz fala.</small>
+  <small id="temposInfo">Vale para a TV da sala de espera (todas as telas). Padrão: 30 s e 60 s. Depois do tempo, a TV volta para a lista de próximos voos. Os outros avisos ficam só enquanto a voz fala.</small>
   <p id="statusCfg" class="dica"></p>
 </aside>
 
@@ -1061,7 +1061,7 @@ if(typeof module!=='undefined'){ module.exports={ENCERRAMENTO_REF:ENCERRAMENTO_R
   opsAcompanhar(function(){ desenha(); desenhaTempos(); }, 10);
 
   /* ----- tempo de cada aviso na TV (Configurações): fica no servidor e vale para todas as TVs ----- */
-  var TEMPOS_PADRAO={inicio5:60, embarque:180}, temposEditando=false;
+  var TEMPOS_PADRAO={inicio5:30, embarque:60}, temposEditando=false;
   function desenhaTempos(){
     if(temposEditando) return;
     var t=(OPS.config&&OPS.config.tempos)||{};

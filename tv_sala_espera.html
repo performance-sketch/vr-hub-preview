@@ -63,8 +63,8 @@ body.pisca-pulseira::after{display:none} /* durante o piscar da pulseira, sem a 
 .voo.compacto .obs{font-size:32px;line-height:1.2;margin-top:6px;-webkit-line-clamp:2}
 .claro .voo .obs{color:#8a6d00}
 /* troca de idioma suave: o texto some (fade), troca e volta; os cards não piscam */
-#tit,.cab,#rod,#lista .prod,#lista .st,#lista .meta{transition:opacity .5s ease}
-body.trocando #tit,body.trocando .cab,body.trocando #rod,body.trocando #lista .prod,body.trocando #lista .st,body.trocando #lista .meta{opacity:0}
+#tit,.cab,#rod,#lista .prod,#lista .st,#lista .meta,#alerta>div{transition:opacity .5s ease}
+body.trocando #tit,body.trocando .cab,body.trocando #rod,body.trocando #lista .prod,body.trocando #lista .st,body.trocando #lista .meta,body.trocando #alerta>div{opacity:0}
 .sem-anim .voo:not(.destaque){animation:none}
 /* modo claro (botão "Modo claro/escuro", tecla T ou ?tema=claro) */
 body.claro{background:radial-gradient(1200px 1000px at 50% 0%,#ffffff 0%,#eceef2 60%);color:#1d1d1f}
@@ -136,7 +136,17 @@ const TX={
   st:{CONFIRMADO:'CONFIRMADO',EMBARCANDO:'EMBARCANDO',VOANDO:'EN VUELO',ATRASADO:'RETRASADO'},
   cor:{BRANCA:'Blanca',PRETA:'Negra',AMARELA:'Amarilla',VERDE:'Verde',AZUL:'Azul'}}};
 const PROD={pt:{DOORS_OFF_30:'Doors Off 30 min',DOORS_OFF_45:'Doors Off 45 min',DOORS_ON_30:'Doors On 30 min'},en:{DOORS_OFF_30:'Doors Off 30 min',DOORS_OFF_45:'Doors Off 45 min',DOORS_ON_30:'Doors On 30 min'},es:{DOORS_OFF_30:'Doors Off 30 min',DOORS_OFF_45:'Doors Off 45 min',DOORS_ON_30:'Doors On 30 min'}};
-const AVISO={embarque:['EMBARQUE','Embarque autorizado','Boarding now','Embarque autorizado'],ultima:['ÚLTIMA CHAMADA','Última chamada','Final call','Última llamada'],checkin:['CHECK-IN','Check-in aberto','Check-in open','Check-in abierto'],atraso:['ATRASO','Voo atrasado','Flight delayed','Vuelo retrasado'],cancelado:['CANCELAMENTO','Voo cancelado','Flight cancelled','Vuelo cancelado'],geral:['AVISO','Aviso','Notice','Aviso'],inicio5:['INÍCIO EM 5 MIN','Início em 5 minutos','Starting in 5 minutes','Comienza en 5 minutos']};
+// cartão do aviso: [rótulo, título] em cada idioma; o cartão segue o idioma da tela (rodízio PT/EN/ES)
+const AVISO={
+ embarque:{pt:['EMBARQUE','Embarque autorizado'],en:['BOARDING','Boarding now'],es:['EMBARQUE','Embarque autorizado']},
+ ultima:{pt:['ÚLTIMA CHAMADA','Última chamada'],en:['FINAL CALL','Final call'],es:['ÚLTIMA LLAMADA','Última llamada']},
+ checkin:{pt:['CHECK-IN','Check-in aberto'],en:['CHECK-IN','Check-in open'],es:['CHECK-IN','Check-in abierto']},
+ atraso:{pt:['ATRASO','Voo atrasado'],en:['DELAY','Flight delayed'],es:['RETRASO','Vuelo retrasado']},
+ cancelado:{pt:['CANCELAMENTO','Voo cancelado'],en:['CANCELLATION','Flight cancelled'],es:['CANCELACIÓN','Vuelo cancelado']},
+ geral:{pt:['AVISO','Aviso'],en:['NOTICE','Notice'],es:['AVISO','Aviso']},
+ inicio5:{pt:['INÍCIO EM 5 MIN','Início em 5 minutos'],en:['STARTING IN 5 MIN','Starting in 5 minutes'],es:['COMIENZA EN 5 MIN','Comienza en 5 minutos']}};
+const PUL_TXT={pt:c=>'pulseira '+c,en:c=>c+' wristband',es:c=>'pulsera '+c};
+const SALA_TXT={pt:'Sala',en:'Room',es:'Sala'};
 
 const agoraMin=()=>{if(param('hora')){const[a,b]=param('hora').split(':').map(Number);return a*60+b}const p=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());return +p.find(x=>x.type==='hour').value*60+ +p.find(x=>x.type==='minute').value};
 const hm=s=>{const[a,b]=s.split(':').map(Number);return a*60+b};
@@ -161,6 +171,7 @@ function render(){
  document.getElementById('rod').textContent=t.rod;
  document.getElementById('bls').innerHTML=Object.values(OPS_PULSEIRAS).map(c=>`<i style="background:${c}"></i>`).join('');
  document.getElementById('off').hidden=!OPS.erro;
+ if(alertaAtual)desenhaAlerta();
  const vs=proximos().slice(0,n),el=document.getElementById('lista');
  if(!vs.length){el.innerHTML=`<div class="vazio">${OPS.ok||OPS.erro?t.nada:'…'}<small>${OPS.ok?t.nadaSub:''}</small></div>`;return}
  const comp=n>5?' compacto':'';
@@ -173,7 +184,7 @@ function render(){
 
 // anúncios: cada aviso novo pisca a tela e destaca o voo por 5 s, depois volta ao normal
 const CARTAO_PULSEIRA=['embarque','inicio5','ultima','checkin']; // avisos com o cartão na cor da pulseira
-const TEMPO_FIXO={inicio5:60e3,embarque:180e3}; // padrão; a Central pode mudar (config.tempos, em segundos)
+const TEMPO_FIXO={inicio5:30e3,embarque:60e3}; // padrão; a Central pode mudar (config.tempos, em segundos)
 function tempoFixo(tipo){const s=+((OPS.config&&OPS.config.tempos)||{})[tipo];return s>0?s*1000:(TEMPO_FIXO[tipo]||0)}
 const vistos=new Set();let primeira=true,fila=[],mostrando=false;
 function novosAvisos(){
@@ -181,17 +192,23 @@ function novosAvisos(){
  (OPS.avisos||[]).forEach(a=>{if(vistos.has(a.id))return;vistos.add(a.id);if(!primeira&&new Date(a.em).getTime()>limite)fila.push(a)});
  primeira=false;if(!mostrando)proximoAviso();
 }
+// desenha o cartão do aviso no idioma atual da tela (o rodízio de idiomas continua com o aviso aberto)
+let alertaAtual=null;
+function desenhaAlerta(){
+ const {a,v}=alertaAtual,tx=(AVISO[a.tipo]||AVISO.geral)[lang],t=TX[lang];
+ // 2.1: no lugar do número do voo (VR-004), o horário do voo em destaque
+ const hm=(a.sub||'').match(/(\d{1,2})h(\d{2})\s*$/),hora=(v&&v.hora)||(hm?hm[1].padStart(2,'0')+':'+hm[2]:''),sub=(a.sub||'').replace(/\s*·\s*\d{1,2}h\d{2}\s*$/,'');
+ const txt=String(a.texto||'').replace(/^Sala\s+(\d+)$/i,(_,n)=>SALA_TXT[lang]+' '+n),livre=txt&&!/^(Sala|Room)\s+\d+$/.test(txt);
+ document.getElementById('alerta').innerHTML=`<div class="k">${tx[0]}</div>${hora?`<div class="v">${opsEsc(hora)}</div>`:''}<div class="t">${tx[1]}</div>
+  ${sub?`<div class="s">${a.pulseira?`<i style="background:${OPS_PULSEIRAS[a.pulseira]}"></i>`:''}${opsEsc(sub)}${a.pulseira?` · ${PUL_TXT[lang](t.cor[a.pulseira].toLowerCase())}`:''}</div>`:''}
+  ${txt?`<div class="txt">${opsEsc(livre?obsIdioma(txt):txt)}</div>`:''}`;
+}
 function proximoAviso(){
  let a=fila.shift();if(!a){mostrando=false;return}mostrando=true;
  // "Início em 5 minutos" chega como aviso geral com texto "Início em 5 minutos · Sala N"
  if(a.tipo==='geral'&&/^Início em 5 minutos/.test(a.texto||''))a={...a,tipo:'inicio5',texto:String(a.texto).replace(/^Início em 5 minutos\s*·?\s*/,'')};
- const tx=AVISO[a.tipo]||AVISO.geral,v=OPS.voos.find(x=>x.id===a.vooId),al=document.getElementById('alerta');
- // 2.1: no lugar do número do voo (VR-004), o horário do voo em destaque
- const hm=(a.sub||'').match(/(\d{1,2})h(\d{2})\s*$/),hora=(v&&v.hora)||(hm?hm[1].padStart(2,'0')+':'+hm[2]:''),sub=(a.sub||'').replace(/\s*·\s*\d{1,2}h\d{2}\s*$/,'');
- al.innerHTML=`<div class="k">${tx[0]}</div>${hora?`<div class="v">${opsEsc(hora)}</div>`:''}<div class="t">${tx[1]}</div>
-  ${sub?`<div class="s">${a.pulseira?`<i style="background:${OPS_PULSEIRAS[a.pulseira]}"></i>`:''}${opsEsc(sub)}${a.pulseira?` · pulseira ${TX.pt.cor[a.pulseira].toLowerCase()}`:''}</div>`:''}
-  <div class="tr">${tx[2]}<br>${tx[3]}</div>${a.texto?`<div class="txt">${opsEsc(a.texto)}</div>`:''}`;
- destaque=v?v.id:null;render();
+ const v=OPS.voos.find(x=>x.id===a.vooId),al=document.getElementById('alerta');
+ alertaAtual={a,v};destaque=v?v.id:null;render();
  // chamadas do voo: cartão na cor da pulseira; atraso, cancelamento e avisos gerais continuam amarelos
  const pul=a.pulseira||(v&&v.pulseira),b=document.body;let tPisca=null;
  al.classList.remove('cor-pulseira');
@@ -202,8 +219,8 @@ function proximoAviso(){
  // embarque: pisca 5 s na cor da pulseira (pulseira preta: fundo preto com borda branca para aparecer)
  if(a.tipo==='embarque'&&OPS_PULSEIRAS[pul]){b.style.setProperty('--pisca',OPS_PULSEIRAS[pul]);b.style.setProperty('--pisca-borda',pul==='PRETA'?'#ffffff':'transparent');
   b.classList.remove('pisca-pulseira');void b.offsetWidth;b.classList.add('pisca-pulseira');tPisca=setTimeout(()=>b.classList.remove('pisca-pulseira'),5000)}
- const ini=Date.now(),fecha=()=>{clearTimeout(tPisca);b.classList.remove('pisca-pulseira');al.classList.remove('on');b.classList.remove('flash');destaque=null;render();setTimeout(proximoAviso,600)};
- // tempo fixo na tela (configurável na Central): "Início em 5 minutos" 1 min, embarque 3 min por padrão
+ const ini=Date.now(),fecha=()=>{clearTimeout(tPisca);b.classList.remove('pisca-pulseira');al.classList.remove('on');b.classList.remove('flash');destaque=null;alertaAtual=null;render();setTimeout(proximoAviso,600)};
+ // tempo fixo na tela (configurável na Central): "Início em 5 minutos" 30 s, embarque 1 min por padrão
  // (um aviso novo que chegar antes entra no lugar depois de 5 s); ao terminar, volta à lista de próximos voos
  // "Somente publicar na TV" (sem fala): avisos sem tempo configurado ficam 30 s
  const fixo=tempoFixo(a.tipo)||(a.soTv?30e3:0);
@@ -221,10 +238,10 @@ relogio();setInterval(relogio,1000);
 opsAcompanhar(()=>{render();novosAvisos()},+param('seg')||2);
 function trocaIdioma(){ // fade out (0,5 s) → troca o texto → fade in
  const b=document.body;b.classList.add('trocando');
- setTimeout(()=>{if(mostrando){b.classList.remove('trocando');return}
+ setTimeout(()=>{
   lang=IDIOMAS[(IDIOMAS.indexOf(lang)+1)%3];document.getElementById('lista').classList.add('sem-anim');render();
   requestAnimationFrame(()=>requestAnimationFrame(()=>b.classList.remove('trocando')))},500)}
-setInterval(()=>{if(!param('idioma')&&!mostrando)trocaIdioma()},IDIOMA_SEG*1000);
+setInterval(()=>{if(!param('idioma'))trocaIdioma()},IDIOMA_SEG*1000);
 setInterval(()=>{if(!mostrando)render()},30000); // tira da lista os cancelados antigos sem esperar mudança no servidor
 // versão nova publicada: a TV se recarrega sozinha (confere a cada 2 min, nunca no meio de um aviso)
 let versaoTv=null;
