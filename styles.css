@@ -380,6 +380,10 @@ body.tv .tv-main { min-height: calc(100vh - 64px); align-items: start; }
 .btn.tv-obs { font-size: 12px; padding: 6px 12px; gap: 6px; }
 .btn.tv-obs svg.i { width: 15px; height: 15px; }
 .btn.tv-obs.on { background: var(--accent-soft); color: var(--accent); }
+/* Status de Voo (Dashboard): observação do voo numa linha embaixo, com o botão Na TV */
+.board tr.obs-row td { border-top: 0; padding: 0 10px 10px; text-align: left; }
+.board tr.obs-row .prog-obs { margin-left: 0; }
+@media (max-width: 700px) { .board tr.obs-row { display: block; border-top: 0; padding: 0 8px 9px; } .board tr.obs-row td { padding: 0; } }
 
 /* edição rápida no Status de Voo (administradores) */
 .board .qe-hora { background: var(--muted); color: var(--fg); border: 1px solid transparent; border-radius: 6px; font-weight: 600; font-size: 18px; font-variant-numeric: tabular-nums; padding: 3px 6px; color-scheme: light; width: 108px; transition: border-color .15s, background .15s; }

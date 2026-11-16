@@ -386,6 +386,9 @@
   }
 
   // ---------- Blocos compartilhados (Dashboard / TV) ----------
+  // observação do voo no Status de Voo, com o mesmo botão da Programação para mostrar/esconder na TV
+  const obsBtn = v => `<button class="btn tv-obs ${v.obsTv ? 'on' : ''}" data-obstv="${v.id}" title="${v.obsTv ? 'A observação aparece no Painel de Status. Clique para esconder.' : 'Clique para a observação aparecer no Painel de Status.'}">${icon('tv')} ${v.obsTv ? 'Na TV' : 'Mostrar na TV'}</button>`;
+  const obsLinha = v => `<tr class="obs-row"><td colspan="6"><div class="prog-obs"><span class="prog-obs-txt">${esc(v.obs)}</span>${pode('voo') ? obsBtn(v) : v.obsTv ? `<span class="btn tv-obs on" style="cursor:default">${icon('tv')} Na TV</span>` : ''}</div></td></tr>`;
   function flightBoard(s, withFoot) {
     const list = OPS.date === s ? OPS.voos.filter(v => v.data === s) : [];
     const flip = t => `<span class="flip">${[...t].map(c => (c === ':' ? '<i>:</i>' : `<b>${c}</b>`)).join('')}</span>`;
@@ -397,7 +400,7 @@
         <td class="c-fita">${qePul ? `<label class="qe-fita" title="Pulseira"><span class="dot" style="background:${FITAS[v.pulseira]}"></span><select data-qe="pulseira" data-id="${esc(v.id)}" aria-label="Pulseira">${Object.keys(FITAS).map(f => `<option value="${f}" ${f === v.pulseira ? 'selected' : ''}>${f.charAt(0) + f.slice(1).toLowerCase()}</option>`).join('')}</select></label>` : `<span class="dot" style="background:${FITAS[v.pulseira]}"></span>`}</td>
         <td class="c-pax">${adm ? `<input type="number" min="0" max="99" inputmode="numeric" class="pax qe qe-pax" data-qe="pax" data-id="${esc(v.id)}" value="${v.pax}" aria-label="PAX">` : `<span class="pax">${v.pax}</span>`}</td>
         <td class="c-voo"><span class="voo">${v.tipo === 'PRIVADO' ? 'PRIVADO ' + PROD_MIN[v.produto] : PROD_CURTO[v.produto]}</span></td>
-        <td class="c-st">${stEdit ? `<select class="badge st-${v.status.replace(' ', '-')} stsel" data-status="${esc(v.id)}" aria-label="Status do voo das ${esc(v.hora)}">${STATUS.map(x => `<option ${x === v.status ? 'selected' : ''}>${x}</option>`).join('')}</select>` : badge(v.status)}</td>${withFoot ? `<td class="c-aviso">${sino && anuncioDe(v) ? `<button type="button" class="sino${anuncio && anuncio.id === v.id ? ' tocando' : ''}" data-sino="${esc(v.id)}" title="${esc(anuncioDe(v).nome)} do voo das ${esc(v.hora)}" aria-label="${esc(anuncioDe(v).nome)} do voo das ${esc(v.hora)}">${icon('bell')}</button>` : '<span class="muted small">—</span>'}</td>` : ''}</tr>`).join('')
+        <td class="c-st">${stEdit ? `<select class="badge st-${v.status.replace(' ', '-')} stsel" data-status="${esc(v.id)}" aria-label="Status do voo das ${esc(v.hora)}">${STATUS.map(x => `<option ${x === v.status ? 'selected' : ''}>${x}</option>`).join('')}</select>` : badge(v.status)}</td>${withFoot ? `<td class="c-aviso">${sino && anuncioDe(v) ? `<button type="button" class="sino${anuncio && anuncio.id === v.id ? ' tocando' : ''}" data-sino="${esc(v.id)}" title="${esc(anuncioDe(v).nome)} do voo das ${esc(v.hora)}" aria-label="${esc(anuncioDe(v).nome)} do voo das ${esc(v.hora)}">${icon('bell')}</button>` : '<span class="muted small">—</span>'}</td>` : ''}</tr>${withFoot && v.obs ? obsLinha(v) : ''}`).join('')
       : `<tr class="empty-row"><td colspan="${withFoot ? 6 : 5}">${OPS.erro ? 'Sem conexão com o servidor de voos.' : 'Nenhum voo programado para hoje.'}</td></tr>`;
     return `<div class="board"><div class="board-head">${icon('heli')}<h2>Status de Voo</h2>${withFoot && pode('voo') ? `<a class="board-edit" href="#/programacao" title="Editar voos na Programação">${icon('pencil')}Editar</a>` : ''}</div>
       <table><thead><tr><th style="width:17%">HORÁRIO</th><th style="width:8%">FITA</th><th style="width:9%">PAX</th><th style="width:21%">VOO</th><th>STATUS</th>${withFoot ? '<th style="width:9%">AVISO</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>
@@ -570,6 +573,8 @@
   }
   function bindDashboard(app) {
     app.querySelectorAll('[data-sino]').forEach(b => { b.onclick = () => anunciar(b.dataset.sino); });
+    app.querySelectorAll('[data-obstv]').forEach(b => b.onclick = () => { const v = OPS.voos.find(x => x.id === b.dataset.obstv); if (!v) return;
+      acaoOps({ tipo: 'editar_voo', id: v.id, mudancas: { obsTv: !v.obsTv } }, v.obsTv ? 'Observação escondida da TV' : 'Observação aparecendo no Painel de Status'); });
     app.querySelectorAll('select[data-status]').forEach(sel => {
       sel.onchange = () => acaoOps({ tipo: 'editar_voo', id: sel.dataset.status, mudancas: { status: sel.value } }, `Status alterado para ${sel.value}`);
     });
@@ -640,7 +645,7 @@
               ${pode('voo') ? `<button class="icon-btn" data-edit="${v.id}" aria-label="Editar">${icon('pencil')}</button>
               <button class="icon-btn" data-del="${v.id}" aria-label="Excluir">${icon('trash')}</button>` : ''}
               ${v.obs ? `<div class="prog-obs"><span class="prog-obs-txt">${esc(v.obs)}</span>
-                ${pode('voo') ? `<button class="btn tv-obs ${v.obsTv ? 'on' : ''}" data-obstv="${v.id}" title="${v.obsTv ? 'A observação aparece no Painel de Status. Clique para esconder.' : 'Clique para a observação aparecer no Painel de Status.'}">${icon('tv')} ${v.obsTv ? 'Na TV' : 'Mostrar na TV'}</button>` : ''}</div>` : ''}
+                ${pode('voo') ? obsBtn(v) : ''}</div>` : ''}
               ${progOpen === v.id ? paxPanel(v) : ''}</div>`).join('')}</div>`
             : `<div class="empty">${OPS.erro ? 'Sem conexão com o servidor de voos.' : 'Nenhum voo programado para este dia.'}</div>`}
         </div>
