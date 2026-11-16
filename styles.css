@@ -363,6 +363,18 @@ body.tv .tv-main { min-height: calc(100vh - 64px); align-items: start; }
 /* Programação: observação do voo numa linha própria, abaixo dos dados (não divide espaço com status e botões) */
 .prog-grid .list .grow { min-width: 140px; }
 .prog-obs { flex-basis: 100%; display: flex; align-items: center; gap: 12px; margin-left: 84px; padding: 10px 14px; border-radius: 10px; background: var(--muted); }
+/* passageiros: nome + assento numa linha, comentário embaixo em texto corrido */
+.pax-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.pax-row:last-of-type { border-bottom: 0; }
+.pax-top { display: flex; gap: 8px; align-items: center; }
+.pax-nome-in { flex: 1; min-width: 0; }
+.pax-seat { width: 110px; flex: none; text-align: center; }
+.pax-obs { width: 100%; min-height: 40px; resize: vertical; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.pax-new { margin-top: 6px; padding: 12px; border: 1px dashed var(--border); border-radius: 12px; }
+.pax-nome { font-weight: 600; }
+.pax-seat-tag { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--muted); }
+.pax-obs-txt { margin-left: 26px; font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--fg); }
+@media (max-width: 600px) { .pax-seat { width: 84px; } .pax-new .pax-top { flex-wrap: wrap; } .pax-new .btn { width: 100%; justify-content: center; } }
 .prog-obs-txt { flex: 1; min-width: 0; font-size: 14px; line-height: 1.45; color: var(--fg); white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .prog-obs { margin-left: 0; flex-wrap: wrap; } }
 .btn.tv-obs { font-size: 12px; padding: 6px 12px; gap: 6px; }

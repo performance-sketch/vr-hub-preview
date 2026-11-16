@@ -972,8 +972,8 @@ if(typeof module!=='undefined'){ module.exports={ENCERRAMENTO_REF:ENCERRAMENTO_R
     if(modeloPorId('voo')) $('modelo').value='voo';
     preenche(true);
     var info=$('rezdyInfo'); info.hidden=false;
-    info.textContent = s ? 'Agenda: voo '+pf.voo+' das '+s.hora+' · '+s.produtos.join(' + ')+' · '+s.pax+' pax · '+s.bookings.length+' reservas ('+s.bookings.map(function(b){return b.order;}).join(', ')+')'+(pf.status?' · status '+pf.status:'')
-                         : 'Voo '+pf.voo+' não encontrado nos voos de hoje'+(hora?'; horário vindo do iPad: '+hora:'')+'. Confira antes de falar.';
+    info.textContent = s ? 'Agenda: voo das '+s.hora+' · '+s.produtos.join(' + ')+' · '+s.pax+' pax · '+s.bookings.length+' reservas ('+s.bookings.map(function(b){return b.order;}).join(', ')+')'+(pf.status?' · status '+pf.status:'')
+                         : 'Voo não encontrado nos voos de hoje'+(hora?'; horário vindo do iPad: '+hora:'')+'. Confira antes de falar.';
   })();
   /* integração com a Programação: escolher um voo preenche horário e pulseira da chamada */
   window.__vrCentral = { modelo: function(id){ if(modeloPorId(id)){ $('modelo').value=id; gravar(LS.modeloSel,id); preenche(false); } }, voo: function(hora, pulseira, modeloId){

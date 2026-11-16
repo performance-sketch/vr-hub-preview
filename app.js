@@ -8,7 +8,7 @@
   const PRODUTOS = { DOORS_OFF_30: 'Doors Off 30 min', DOORS_OFF_45: 'Doors Off 45 min', DOORS_ON_30: 'Doors On 30 min' };
   const PROD_CURTO = { DOORS_OFF_30: 'DOORS OFF 30', DOORS_OFF_45: 'DOORS OFF 45', DOORS_ON_30: 'DOORS ON 30' };
   const PROD_MIN = { DOORS_OFF_30: 30, DOORS_OFF_45: 45, DOORS_ON_30: 30 };
-  const TIPOS_LOG = { cadastro: 'Cadastro', alteracao: 'Alteração', status: 'Status', horario: 'Horário', pax: 'PAX', pulseira: 'Pulseira', exclusao: 'Exclusão', aviso: 'Aviso', config: 'Configuração', registro: 'Registro de voos', acesso: 'Acesso (login)', usuario: 'Usuários e permissões', venda: 'Câmeras' };
+  const TIPOS_LOG = { cadastro: 'Cadastro', alteracao: 'Alteração', status: 'Status', horario: 'Horário', pax: 'PAX', pulseira: 'Pulseira', exclusao: 'Exclusão', aviso: 'Aviso', config: 'Configuração', registro: 'Registro de voos', acesso: 'Acesso (login)', usuario: 'Usuários e permissões', venda: 'Câmeras', escala: 'Escala' };
   const SETORES = { gestao: 'Gestão', coordenacao: 'Coordenação do Terminal', operacao: 'Operação', vendas: 'Vendas' };
   const SETOR_ORDER = ['gestao', 'coordenacao', 'operacao', 'vendas'];
   const ESC = { T: 'Trabalho', F: 'Folga', V: 'Férias', M: 'Dispensa médica' };
@@ -113,7 +113,8 @@
       if (d.registros !== undefined) OPS.registros = d.registros;
       if (d.vendas !== undefined) OPS.vendas = d.vendas;
       if (d.comissao !== undefined) OPS.comissao = d.comissao;
-      importarRegistros(); importarVendas();
+      if (d.escala !== undefined) { OPS.escala = d.escala; aplicarEscala(); }
+      importarRegistros(); importarVendas(); importarEscala();
       return true;
     } catch (e) { OPS.erro = e.message; if (!same) Object.assign(OPS, { date, voos: [], rev: -1 }); return true; } finally { OPS.carregando = false; }
   }
@@ -127,6 +128,7 @@
       if (d.registros !== undefined) OPS.registros = d.registros;
       if (d.vendas !== undefined) OPS.vendas = d.vendas;
       if (d.comissao !== undefined) OPS.comissao = d.comissao;
+      if (d.escala !== undefined) { OPS.escala = d.escala; aplicarEscala(); }
       return true;
     } catch (e) { return false; } finally { VOOS_CICLOS.carregando = false; }
   }
@@ -152,6 +154,26 @@
       .then(r => { try { localStorage.setItem(VENDAS_ENVIADAS, marca); } catch (e) { /* */ } if (r.resultado && r.resultado.importados) toast(`${r.resultado.importados} vendas de câmeras enviadas para o servidor`); return loadOps(OPS.date || today(), true); })
       .then(() => render()).catch(() => { importandoVendas = false; });
   }
+  // escala de funcionários: antes ficava só no navegador de cada um (por isso não aparecia nos outros logins).
+  // Agora fica no servidor; o primeiro aparelho com acesso leva a escala dele uma vez, e depois todos veem a mesma.
+  function aplicarEscala() {
+    const e = OPS.escala;
+    if (!e || !DB || DB.restrito || window.SEED_DEV) return;
+    DB.team = JSON.parse(JSON.stringify(e.team || []));
+    DB.escalaOp = JSON.parse(JSON.stringify(e.op || {}));
+    DB.escalaDiaria = JSON.parse(JSON.stringify(e.diaria || {}));
+    try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (x) { /* */ }
+  }
+  let importandoEscala = false;
+  function importarEscala() {
+    if (importandoEscala || window.SEED_DEV || !pode('dados') || !DB || DB.restrito || OPS.escala !== null) return;
+    importandoEscala = true;
+    api('/acao', { method: 'POST', body: JSON.stringify({ tipo: 'escala_importar', team: DB.team, op: DB.escalaOp, diaria: DB.escalaDiaria }) })
+      .then(r => { if (r.resultado && r.resultado.importados) toast('Escala enviada para o servidor: agora é a mesma em todos os logins'); return loadOps(OPS.date || today(), true); })
+      .then(() => render()).catch(() => { importandoEscala = false; });
+  }
+  // grava uma mudança da escala no servidor (a tela já mostra a mudança na hora)
+  const escalaSrv = (body, msg) => { if (window.SEED_DEV || !OPS.escala) return; acaoOps(body, msg); };
   async function acaoOps(body, okMsg) {
     if (!OPS.operador) { travar(); return null; }
     try { const r = await api('/acao', { method: 'POST', body: JSON.stringify(body) }); if (okMsg) toast(okMsg); await loadOps(OPS.date, true); await loadCiclos(true); render(); return r; }
@@ -375,7 +397,7 @@
         <td class="c-fita">${qePul ? `<label class="qe-fita" title="Pulseira"><span class="dot" style="background:${FITAS[v.pulseira]}"></span><select data-qe="pulseira" data-id="${esc(v.id)}" aria-label="Pulseira">${Object.keys(FITAS).map(f => `<option value="${f}" ${f === v.pulseira ? 'selected' : ''}>${f.charAt(0) + f.slice(1).toLowerCase()}</option>`).join('')}</select></label>` : `<span class="dot" style="background:${FITAS[v.pulseira]}"></span>`}</td>
         <td class="c-pax">${adm ? `<input type="number" min="0" max="99" inputmode="numeric" class="pax qe qe-pax" data-qe="pax" data-id="${esc(v.id)}" value="${v.pax}" aria-label="PAX">` : `<span class="pax">${v.pax}</span>`}</td>
         <td class="c-voo"><span class="voo">${v.tipo === 'PRIVADO' ? 'PRIVADO ' + PROD_MIN[v.produto] : PROD_CURTO[v.produto]}</span></td>
-        <td class="c-st">${stEdit ? `<select class="badge st-${v.status.replace(' ', '-')} stsel" data-status="${esc(v.id)}" aria-label="Status do voo ${esc(v.codigo || v.hora)}">${STATUS.map(x => `<option ${x === v.status ? 'selected' : ''}>${x}</option>`).join('')}</select>` : badge(v.status)}</td>${withFoot ? `<td class="c-aviso">${sino && anuncioDe(v) ? `<button type="button" class="sino${anuncio && anuncio.id === v.id ? ' tocando' : ''}" data-sino="${esc(v.id)}" title="${esc(anuncioDe(v).nome)} do voo ${esc(v.codigo || v.hora)}" aria-label="${esc(anuncioDe(v).nome)} do voo ${esc(v.codigo || v.hora)}">${icon('bell')}</button>` : '<span class="muted small">—</span>'}</td>` : ''}</tr>`).join('')
+        <td class="c-st">${stEdit ? `<select class="badge st-${v.status.replace(' ', '-')} stsel" data-status="${esc(v.id)}" aria-label="Status do voo das ${esc(v.hora)}">${STATUS.map(x => `<option ${x === v.status ? 'selected' : ''}>${x}</option>`).join('')}</select>` : badge(v.status)}</td>${withFoot ? `<td class="c-aviso">${sino && anuncioDe(v) ? `<button type="button" class="sino${anuncio && anuncio.id === v.id ? ' tocando' : ''}" data-sino="${esc(v.id)}" title="${esc(anuncioDe(v).nome)} do voo das ${esc(v.hora)}" aria-label="${esc(anuncioDe(v).nome)} do voo das ${esc(v.hora)}">${icon('bell')}</button>` : '<span class="muted small">—</span>'}</td>` : ''}</tr>`).join('')
       : `<tr class="empty-row"><td colspan="${withFoot ? 6 : 5}">${OPS.erro ? 'Sem conexão com o servidor de voos.' : 'Nenhum voo programado para hoje.'}</td></tr>`;
     return `<div class="board"><div class="board-head">${icon('heli')}<h2>Status de Voo</h2>${withFoot && pode('voo') ? `<a class="board-edit" href="#/programacao" title="Editar voos na Programação">${icon('pencil')}Editar</a>` : ''}</div>
       <table><thead><tr><th style="width:17%">HORÁRIO</th><th style="width:8%">FITA</th><th style="width:9%">PAX</th><th style="width:21%">VOO</th><th>STATUS</th>${withFoot ? '<th style="width:9%">AVISO</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>
@@ -518,7 +540,7 @@
     try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume(); } catch (e) { toast('Este navegador não toca áudio.'); return; }
     if (!OPS.operador) { loginModal(() => anunciar(id)); return; }
     const ex = anuncio = { id, fontes: [], cancelado: false }; render();
-    toast(`Voo ${v.codigo || v.hora}: ${a.nome}...`);
+    toast(`Voo das ${v.hora}: ${a.nome}...`);
     // 1º o aviso sonoro (na hora do toque), enquanto a voz é gerada; 2º o texto falado, depois que o som termina
     const fimGongo = tocaGongo(audioCtx, ex);
     // a TV mostra o aviso só durante a fala: publica quando as vozes ficam prontas e tira quando a fala termina
@@ -609,11 +631,11 @@
         <div><div class="section-title" style="margin-top:0">Voos programados · ${br(progDate)} <span>${list.length} voo${list.length === 1 ? '' : 's'} · ${list.reduce((a, v) => a + v.pax, 0)} PAX</span></div>
           ${list.length ? `<div class="list">${list.map(v => `<div class="item" style="flex-wrap:wrap">
               <span class="f-time">${v.hora}</span>
-              <div class="grow"><div class="title" style="display:flex;align-items:center;gap:8px"><span class="muted small">${v.codigo}</span><span class="swatch" style="background:${FITAS[v.pulseira]}"></span>${v.pulseira}</div>
+              <div class="grow"><div class="title" style="display:flex;align-items:center;gap:8px"><span class="swatch" style="background:${FITAS[v.pulseira]}"></span>${v.pulseira}</div>
                 <div class="meta">${v.pax} PAX · ${PRODUTOS[v.produto]} · ${v.tipo}</div></div>
               ${badge(v.status)}
               ${pode('voo') ? `<select class="input" style="width:150px" data-status="${v.id}">${STATUS.map(s => `<option ${s === v.status ? 'selected' : ''}>${s}</option>`).join('')}</select>`
-                : pode('pulseira') ? `<select class="input" style="width:130px" data-pulseira="${v.id}" aria-label="Pulseira do voo ${v.codigo}">${Object.keys(FITAS).map(k => `<option value="${k}" ${k === v.pulseira ? 'selected' : ''}>${k}</option>`).join('')}</select>` : ''}
+                : pode('pulseira') ? `<select class="input" style="width:130px" data-pulseira="${v.id}" aria-label="Pulseira do voo das ${v.hora}">${Object.keys(FITAS).map(k => `<option value="${k}" ${k === v.pulseira ? 'selected' : ''}>${k}</option>`).join('')}</select>` : ''}
               <button class="icon-btn" data-paxopen="${v.id}" title="Passageiros" aria-label="Passageiros">${icon('users')}</button>
               ${pode('voo') ? `<button class="icon-btn" data-edit="${v.id}" aria-label="Editar">${icon('pencil')}</button>
               <button class="icon-btn" data-del="${v.id}" aria-label="Excluir">${icon('trash')}</button>` : ''}
@@ -629,13 +651,18 @@
     const lst = v.paxList || [];
     if (!pode('pax')) return `<div style="width:100%;border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
       <div class="small muted" style="margin-bottom:8px">Passageiros identificados: ${lst.length} de ${v.pax} · pulseira ${v.pulseira} · somente consulta</div>
-      ${lst.map(p => `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="swatch" style="background:${FITAS[v.pulseira]}"></span><span>${esc(p.nome)}</span>${p.obs ? `<span class="muted small">· ${esc(p.obs)}</span>` : ''}</div>`).join('') || '<span class="muted small">Nenhum passageiro identificado.</span>'}</div>`;
+      ${lst.map(p => `<div class="pax-row"><div class="pax-top"><span class="swatch" style="background:${FITAS[v.pulseira]}"></span><b class="pax-nome">${esc(p.nome)}</b>${p.assento ? `<span class="pax-seat-tag">Assento ${esc(p.assento)}</span>` : ''}</div>
+        ${p.obs ? `<div class="pax-obs-txt">${esc(p.obs)}</div>` : ''}</div>`).join('') || '<span class="muted small">Nenhum passageiro identificado.</span>'}</div>`;
     return `<div style="width:100%;border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
       <div class="small muted" style="margin-bottom:8px">Passageiros identificados: ${lst.length} de ${v.pax} · pulseira ${v.pulseira}</div>
-      ${lst.map(p => `<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="swatch" style="background:${FITAS[v.pulseira]}"></span>
-        <input class="input" data-pxnome="${v.id}|${p.id}" value="${esc(p.nome)}" style="flex:2"><input class="input" data-pxobs="${v.id}|${p.id}" value="${esc(p.obs || '')}" placeholder="Obs. (peso, idioma...)" style="flex:1">
-        <button class="icon-btn ghost" data-pxdel="${v.id}|${p.id}" aria-label="Remover">${icon('trash')}</button></div>`).join('')}
-      <form data-pxadd="${v.id}" style="display:flex;gap:8px;margin-top:8px"><input class="input" name="nome" placeholder="Nome do passageiro" required style="flex:2"><input class="input" name="obs" placeholder="Obs." style="flex:1"><button class="btn primary">${icon('plus')} Adicionar</button></form></div>`;
+      ${lst.map(p => `<div class="pax-row"><div class="pax-top"><span class="swatch" style="background:${FITAS[v.pulseira]}"></span>
+        <input class="input pax-nome-in" data-pxnome="${v.id}|${p.id}" value="${esc(p.nome)}" aria-label="Nome do passageiro">
+        <input class="input pax-seat" data-pxassento="${v.id}|${p.id}" value="${esc(p.assento || '')}" placeholder="Assento" maxlength="10" aria-label="Assento">
+        <button class="icon-btn ghost" data-pxdel="${v.id}|${p.id}" aria-label="Remover">${icon('trash')}</button></div>
+        <textarea class="input pax-obs" data-pxobs="${v.id}|${p.id}" rows="1" maxlength="500" placeholder="Comentário (peso, idioma, observações...)" aria-label="Comentário">${esc(p.obs || '')}</textarea></div>`).join('')}
+      <form data-pxadd="${v.id}" class="pax-row pax-new"><div class="pax-top"><input class="input pax-nome-in" name="nome" placeholder="Nome do passageiro" required>
+        <input class="input pax-seat" name="assento" placeholder="Assento" maxlength="10"><button class="btn primary">${icon('plus')} Adicionar</button></div>
+        <textarea class="input pax-obs" name="obs" rows="1" maxlength="500" placeholder="Comentário (opcional)"></textarea></form></div>`;
   }
   function bindProgramacao(root) {
     const oi = root.querySelector('#opIn'); if (oi) oi.onclick = () => loginModal();
@@ -669,9 +696,12 @@
     });
     root.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
       const v = OPS.voos.find(x => x.id === b.dataset.del);
-      if (confirm(`Excluir o voo ${v.codigo} (${v.hora})? O registro continua no histórico.`)) acaoOps({ tipo: 'excluir_voo', id: v.id }, 'Voo excluído');
+      if (confirm(`Excluir o voo das ${v.hora}? O registro continua no histórico.`)) acaoOps({ tipo: 'excluir_voo', id: v.id }, 'Voo excluído');
     });
-    root.querySelectorAll('[data-pxadd]').forEach(f => f.onsubmit = e => { e.preventDefault(); acaoOps({ tipo: 'pax_add', id: f.dataset.pxadd, nome: f.nome.value, obs: f.obs.value }, 'Passageiro adicionado'); });
+    root.querySelectorAll('[data-pxadd]').forEach(f => f.onsubmit = e => { e.preventDefault(); acaoOps({ tipo: 'pax_add', id: f.dataset.pxadd, nome: f.nome.value, assento: f.assento.value, obs: f.obs.value }, 'Passageiro adicionado'); });
+    root.querySelectorAll('[data-pxassento]').forEach(i => i.onchange = () => { const [id, paxId] = i.dataset.pxassento.split('|'); acaoOps({ tipo: 'pax_editar', id, paxId, assento: i.value }, 'Assento salvo'); });
+    // comentário: a caixa cresce com o texto, para ler tudo sem cortar
+    root.querySelectorAll('textarea.pax-obs').forEach(t => { const fit = () => { t.style.height = 'auto'; t.style.height = `${t.scrollHeight + 2}px`; }; fit(); t.addEventListener('input', fit); });
     root.querySelectorAll('[data-pxnome]').forEach(i => i.onchange = () => { const [id, paxId] = i.dataset.pxnome.split('|'); acaoOps({ tipo: 'pax_editar', id, paxId, nome: i.value }, 'Passageiro atualizado'); });
     root.querySelectorAll('[data-pxobs]').forEach(i => i.onchange = () => { const [id, paxId] = i.dataset.pxobs.split('|'); acaoOps({ tipo: 'pax_editar', id, paxId, obs: i.value }, 'Observação salva'); });
     root.querySelectorAll('[data-pxdel]').forEach(b => b.onclick = () => { const [id, paxId] = b.dataset.pxdel.split('|'); if (confirm('Remover este passageiro do voo?')) acaoOps({ tipo: 'pax_remover', id, paxId }, 'Passageiro removido'); });
@@ -698,7 +728,7 @@
         <div><label class="f">Até</label><input class="input" type="date" name="ate" value="${histF.ate}"></div>
         <div><label class="f">Operador</label><select class="input" name="operador"><option value="">Todos</option>${ops.map(o => `<option value="${o.id}" ${o.id === histF.operador ? 'selected' : ''}>${esc(o.nome)}</option>`).join('')}</select></div>
         <div><label class="f">Tipo</label><select class="input" name="tipo"><option value="">Todos</option>${Object.entries(TIPOS_LOG).map(([k, l]) => `<option value="${k}" ${k === histF.tipo ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
-        <div><label class="f">Voo</label><input class="input" name="voo" placeholder="VR-024" value="${esc(histF.voo)}"></div>
+        <div><label class="f">Voo (horário)</label><input class="input" name="voo" placeholder="Ex.: 10:00" value="${esc(histF.voo)}"></div>
         <div><label class="f">PAX</label><input class="input" name="pax" placeholder="Nome" value="${esc(histF.pax)}"></div>
         <div style="grid-column:span 2"><label class="f">Busca</label><input class="input" name="q" placeholder="Palavra ou termo" value="${esc(histF.q)}"></div>
         <button class="btn primary" style="justify-content:center">Filtrar</button>
@@ -706,10 +736,13 @@
       <div class="section-title">${HIST.total} registro${HIST.total === 1 ? '' : 's'}${HIST.total > HIST.itens.length ? ` <span>mostrando os ${HIST.itens.length} mais recentes</span>` : ''}</div>
       ${HIST.itens.length ? `<div class="list">${HIST.itens.map(e => `<div class="item" style="align-items:flex-start">
           <div style="width:118px;flex:none"><b>${new Date(e.em).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</b><div class="muted small">${new Date(e.em).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</div></div>
-          <div class="grow"><div class="small muted">${esc(e.por.nome)} · <b style="color:var(--fg)">${TIPOS_LOG[e.tipo] || e.tipo}</b>${e.voo ? ` · ${e.voo}` : ''}</div><div style="margin-top:3px">${esc(e.descricao)}</div></div></div>`).join('')}</div>`
+          <div class="grow"><div class="small muted">${esc(e.por.nome)} · <b style="color:var(--fg)">${TIPOS_LOG[e.tipo] || e.tipo}</b>${vooHist(e.voo) ? ` · Voo ${esc(vooHist(e.voo))}` : ''}</div><div style="margin-top:3px">${esc(semVR(e.descricao))}</div></div></div>`).join('')}</div>`
         : '<div class="empty">Nenhum registro com esses filtros.</div>'}
       ${OPS.operador.admin ? `<p class="muted small" style="margin-top:16px">Para cadastrar ou excluir operadores, use a tela <a href="#/operadores" style="text-decoration:underline">Operadores</a>.</p>` : ''}`;
   }
+  // registros antigos ainda trazem o número interno do voo (VR-xxx): na tela aparece só o horário
+  const semVR = t => String(t ?? '').replace(/\bVR-\d+\s*\((\d{1,2}:\d{2})\)/g, 'das $1').replace(/\bVR-\d+\s*/g, '');
+  const vooHist = s => (s && !/^VR-/i.test(s) ? s : '');
   function bindHistorico(root) {
     const oi = root.querySelector('#opIn'); if (oi) oi.onclick = () => loginModal(() => { HIST = null; render(); });
     const oo = root.querySelector('#opOut'); if (oo) oo.onclick = () => { HIST = null; logoutOp(); };
@@ -718,7 +751,7 @@
     const csv = root.querySelector('#histCsv');
     if (csv) csv.onclick = () => {
       const q = s => `"${String(s ?? '').replace(/"/g, '""')}"`;
-      const rows = [['data_hora', 'operador', 'tipo', 'voo', 'pax', 'descricao', 'valor_anterior', 'valor_novo'].join(';')].concat(HIST.itens.map(e => [new Date(e.em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }), e.por.nome, TIPOS_LOG[e.tipo] || e.tipo, e.voo, e.pax, e.descricao, typeof e.de === 'object' ? JSON.stringify(e.de) : e.de, e.para].map(q).join(';')));
+      const rows = [['data_hora', 'operador', 'tipo', 'voo', 'pax', 'descricao', 'valor_anterior', 'valor_novo'].join(';')].concat(HIST.itens.map(e => [new Date(e.em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }), e.por.nome, TIPOS_LOG[e.tipo] || e.tipo, vooHist(e.voo), e.pax, semVR(e.descricao), typeof e.de === 'object' ? JSON.stringify(e.de) : e.de, e.para].map(q).join(';')));
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + rows.join('\n')], { type: 'text/csv' })); a.download = `historico-operacao-${histF.de}-a-${histF.ate}.csv`; a.click();
     };
   }
@@ -885,6 +918,7 @@
           if (v) out[card.dataset.p] = { s: v, obs };
         });
         DB.escalaOp[s] = out; close(); save();
+        escalaSrv({ tipo: 'escala_dia', quadro: 'op', data: s, dia: out });
       };
     });
   }
@@ -917,15 +951,16 @@
       <form id="addP" class="row2" style="margin-top:16px;margin-bottom:10px"><input class="input" name="nm" placeholder="Nome do novo funcionário" required><select class="input" name="setor">${SETOR_ORDER.map(s => `<option value="${s}" ${s === 'operacao' ? 'selected' : ''}>${SETORES[s]}</option>`).join('')}</select></form>
       <button class="btn primary" form="addP">Adicionar</button>`;
     modal('Equipe', 'Adicione, edite ou remova funcionários e defina o setor de cada um. Operação usa a escala mensal; os demais setores, a escala diária.', '<div id="teamBody"></div>', m => {
+      const salvaEquipe = () => { save(); draw(); escalaSrv({ tipo: 'equipe_salvar', team: DB.team }); };
       const draw = () => {
         m.querySelector('#teamBody').innerHTML = body();
         m.querySelectorAll('.team-row').forEach(row => {
-          const p = person(row.dataset.id);
-          row.querySelector('[data-setor]').onchange = e => { p.setor = e.target.value; save(); draw(); };
-          row.querySelector('[data-ren]').onclick = () => { const n = prompt('Nome do funcionário:', p.name); if (n && n.trim()) { p.name = n.trim(); save(); draw(); } };
-          row.querySelector('[data-rm]').onclick = () => { if (confirm(`Remover ${p.name} da equipe?`)) { DB.team = DB.team.filter(t => t.id !== p.id); save(); draw(); } };
+          const P = () => person(row.dataset.id);
+          row.querySelector('[data-setor]').onchange = e => { const p = P(); if (!p) return; p.setor = e.target.value; salvaEquipe(); };
+          row.querySelector('[data-ren]').onclick = () => { const p = P(); if (!p) return; const n = prompt('Nome do funcionário:', p.name); if (n && n.trim()) { p.name = n.trim(); salvaEquipe(); } };
+          row.querySelector('[data-rm]').onclick = () => { const p = P(); if (!p) return; if (confirm(`Remover ${p.name} da equipe?`)) { DB.team = DB.team.filter(t => t.id !== p.id); salvaEquipe(); } };
         });
-        m.querySelector('#addP').onsubmit = e => { e.preventDefault(); const f = e.target; DB.team.push({ id: uid(), name: f.nm.value.trim(), setor: f.setor.value }); save(); draw(); };
+        m.querySelector('#addP').onsubmit = e => { e.preventDefault(); const f = e.target; DB.team.push({ id: uid(), name: f.nm.value.trim(), setor: f.setor.value }); salvaEquipe(); };
       };
       draw();
     });
@@ -948,6 +983,7 @@
           if (src) DB.escalaOp[`${escMonth}-${pad(d)}`] = JSON.parse(JSON.stringify(src));
         }
         save(); toast('Escala copiada');
+        escalaSrv({ tipo: 'escala_copiar', de: prev, para: escMonth });
       };
     } else {
       root.querySelector('#escDate').onchange = e => { if (e.target.value) { escDate = e.target.value; render(); } };
@@ -957,12 +993,14 @@
         if (b.dataset.v === 'N') delete day[b.dataset.ds];
         else day[b.dataset.ds] = { s: b.dataset.v, obs: day[b.dataset.ds]?.obs || '' };
         save();
+        escalaSrv({ tipo: 'escala_pessoa', quadro: 'diaria', data: escDate, pessoa: b.dataset.ds, valor: day[b.dataset.ds] || null });
       });
       root.querySelectorAll('[data-dobs]').forEach(t => t.onchange = () => {
         const day = DB.escalaDiaria[escDate] = DB.escalaDiaria[escDate] || {};
         const id = t.dataset.dobs;
         if (!day[id]) { if (!t.value.trim()) return; day[id] = { s: 'T', obs: '' }; }
         day[id].obs = t.value.trim(); save();
+        escalaSrv({ tipo: 'escala_pessoa', quadro: 'diaria', data: escDate, pessoa: id, valor: day[id] });
       });
     }
   }
