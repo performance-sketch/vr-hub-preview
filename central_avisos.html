@@ -43,18 +43,26 @@
   .cor[aria-pressed="true"]{border-color:var(--tinta);box-shadow:inset 0 0 0 1px var(--tinta);font-weight:600}
   .sec{border:1px solid var(--tinta);background:var(--fundo);color:var(--tinta);border-radius:999px;padding:12px 22px;font:inherit;font-size:16px;font-weight:500;cursor:pointer;min-height:48px}
   .sec:hover{background:var(--campo)}
-  #falar{display:block;width:100%;margin-top:44px;border:none;border-radius:999px;background:var(--tinta);color:var(--fundo);font:inherit;font-size:20px;font-weight:600;letter-spacing:.01em;padding:20px;cursor:pointer;min-height:64px;transition:opacity .2s,transform .1s}
-  #falar:active,#falarTv:active{transform:scale(.99)}
-  #falarTv{display:block;width:100%;margin-top:14px;border:none;border-radius:999px;background:#f5c400;color:#231F20;font:inherit;font-size:20px;font-weight:600;letter-spacing:.01em;padding:20px;cursor:pointer;min-height:64px;transition:opacity .2s,transform .1s}
-  /* amarelo = falar e publicar na TV; contorno = apenas falar. Durante o anúncio só aparece o Parar */
-  #falarTv{margin-top:20px}
-  #falar{margin-top:14px;background:transparent;color:var(--tinta);box-shadow:inset 0 0 0 2px var(--tinta)}
-  body:has(#falar.parar) #falarTv{display:none}
-  body:has(#falar.parar) #falar{margin-top:44px}
-  #soTv{display:block;width:100%;margin-top:14px;border:none;border-radius:999px;background:transparent;color:var(--tinta);box-shadow:inset 0 0 0 2px #f5c400;font:inherit;font-size:20px;font-weight:600;letter-spacing:.01em;padding:20px;cursor:pointer;min-height:64px;transition:opacity .2s,transform .1s}
-  #soTv:active{transform:scale(.99)} #soTv:disabled{opacity:.5;cursor:default}
-  body:has(#falar.parar) #soTv,body.falando #soTv{display:none!important}
-  #falar.parar{background:#c62828;color:#fff;box-shadow:0 0 0 4px rgba(198,40,40,.22)}
+  /* três botões de anúncio, lado a lado e com cores próprias: amarelo = falar e publicar na TV,
+     azul = só publicar na TV (sem áudio), verde = só falar (TV não muda). O "i" explica a função ao passar o mouse */
+  .botoesAviso{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:28px}
+  .ba{display:flex;align-items:center;gap:6px;min-width:0}
+  .ba>button{flex:1;min-width:0;border:none;border-radius:999px;font:inherit;font-size:15px;font-weight:600;line-height:1.2;padding:12px 14px;min-height:50px;cursor:pointer;transition:opacity .2s,transform .1s,filter .15s}
+  .ba>button:hover{filter:brightness(.94)} .ba>button:active{transform:scale(.98)}
+  #falarTv{background:#f5c400;color:#231F20}
+  #soTv{background:#1565c0;color:#fff}
+  #falar{background:#2e7d32;color:#fff}
+  .info{position:relative;flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--suave);color:var(--suave);display:inline-flex;align-items:center;justify-content:center;font:italic 700 14px/1 Georgia,"Times New Roman",serif;cursor:help;outline:none}
+  .info:hover,.info:focus-visible{border-color:var(--tinta);color:var(--tinta)}
+  .info .tip{position:absolute;bottom:calc(100% + 10px);right:-8px;width:260px;max-width:80vw;background:var(--tinta);color:var(--fundo);font:400 14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-style:normal;padding:10px 12px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);opacity:0;visibility:hidden;transform:translateY(4px);transition:opacity .15s,transform .15s,visibility .15s;z-index:5;text-align:left}
+  .info .tip::after{content:"";position:absolute;top:100%;right:14px;border:6px solid transparent;border-top-color:var(--tinta)}
+  .info:hover .tip,.info:focus .tip{opacity:1;visibility:visible;transform:none}
+  /* durante o anúncio só aparece o Parar (no lugar do verde), na largura toda */
+  body:has(#falar.parar) #baFalarTv,body:has(#falar.parar) #baSoTv,body.falando #baFalarTv,body.falando #baSoTv,body.falando #baFalar{display:none!important}
+  body:has(#falar.parar) .botoesAviso{grid-template-columns:1fr}
+  #falar.parar+.info{display:none}
+  #soTv:disabled{opacity:.5;cursor:default}
+  #falar.parar{background:#c62828;color:#fff;box-shadow:0 0 0 4px rgba(198,40,40,.22);font-size:18px;min-height:56px}
   body.noite #falar.parar{background:#ef5350;color:#fff;box-shadow:0 0 0 4px rgba(239,83,80,.3)}
   button:disabled{opacity:.45;cursor:default}
   .volume{display:flex;align-items:center;gap:12px;margin-top:40px;padding:12px 16px;border-radius:16px;background:var(--campo)}
@@ -67,7 +75,6 @@
   /* enquanto houver áudio (ElevenLabs ou voz do navegador): só Interromper e Pausar */
   #interromper{display:none;width:100%;margin-top:20px;border:none;border-radius:999px;background:#c62828;color:#fff;box-shadow:0 0 0 4px rgba(198,40,40,.22);font:inherit;font-size:20px;font-weight:700;padding:20px;min-height:64px;cursor:pointer}
   body.falando #interromper,body.falando #pausar{display:block}
-  body.falando #falar,body.falando #falarTv{display:none!important}
   #status{min-height:24px;margin-top:16px;text-align:center;font-size:15px;color:var(--suave);white-space:pre-line}
   #status.erro{color:var(--erro)} #status.ok{color:var(--ok)}
   /* painel de configurações */
@@ -124,7 +131,7 @@
     header{padding-top:18px} header img{height:32px}
     main{padding:32px 18px 48px} h1{font-size:30px;margin-bottom:28px}
     #texto{font-size:20px;min-height:170px;padding:18px 20px;border-radius:16px}
-    section{margin-top:36px} #falarTv{margin-top:40px}
+    section{margin-top:36px} .botoesAviso{grid-template-columns:1fr}
     .voo .sec{width:100%}
   }
 
@@ -200,9 +207,11 @@
   </section>
 
   <div class="volume"><label for="volume"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>Volume</label><input id="volume" type="range" min="0" max="250" step="5" value="100" aria-describedby="volTxt"><output id="volTxt">100%</output></div>
-  <button id="falarTv" type="button">Falar e publicar na TV</button>
-  <button id="soTv" type="button">Somente publicar na TV (sem áudio)</button>
-  <button id="falar" type="button">Somente anúncio sonoro (TV não muda)</button>
+  <div class="botoesAviso">
+    <div class="ba" id="baFalarTv"><button id="falarTv" type="button">Falar e publicar na TV</button><span class="info" tabindex="0" aria-label="O que faz">i<span class="tip" role="tooltip">Fala o texto nos alto-falantes e mostra o aviso na TV da sala de espera enquanto fala. Escolha o voo em “Aviso na TV da sala de espera”.</span></span></div>
+    <div class="ba" id="baSoTv"><button id="soTv" type="button">Somente publicar na TV</button><span class="info" tabindex="0" aria-label="O que faz">i<span class="tip" role="tooltip">Mostra o aviso na TV da sala de espera, sem áudio. “Início em 5 minutos” e “Embarque” ficam o tempo configurado em ⚙️; os demais avisos, 30 segundos.</span></span></div>
+    <div class="ba" id="baFalar"><button id="falar" type="button">Somente anúncio sonoro</button><span class="info" tabindex="0" aria-label="O que faz">i<span class="tip" role="tooltip">Só fala o texto nos alto-falantes. A TV da sala de espera não muda.</span></span></div>
+  </div>
   <button id="interromper" type="button">Interromper áudio</button>
   <button id="pausar" type="button" aria-pressed="false">Pausar</button>
   <div id="status" role="status" aria-live="polite"></div>
@@ -752,7 +761,7 @@ if(typeof module!=='undefined'){ module.exports={ENCERRAMENTO_REF:ENCERRAMENTO_R
   /* ----- falar ----- */
   /* ----- execução atual (token), Parar ----- */
   var execAtual=null, execSeq=0;
-  function modoParar(sim){ var b=$('falar'); b.disabled=false; b.classList.toggle('parar', sim); b.textContent= sim ? 'Parar' : 'Somente anúncio sonoro (TV não muda)'; b.setAttribute('aria-label', sim ? 'Parar o anúncio' : 'Apenas falar, sem publicar na TV'); }
+  function modoParar(sim){ var b=$('falar'); b.disabled=false; b.classList.toggle('parar', sim); b.textContent= sim ? 'Parar' : 'Somente anúncio sonoro'; b.setAttribute('aria-label', sim ? 'Parar o anúncio' : 'Apenas falar, sem publicar na TV'); }
   function fimExec(ex){ if(execAtual!==ex) return false; execAtual=null; estado.ocupado=false; modoParar(false); return true; }
   function parar(){
     var ex=execAtual; if(!ex) return;
