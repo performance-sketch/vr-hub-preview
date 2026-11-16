@@ -183,7 +183,8 @@ function render(){
 }
 
 // anúncios: cada aviso novo pisca a tela e destaca o voo por 5 s, depois volta ao normal
-const CARTAO_PULSEIRA=['embarque','inicio5','ultima','checkin']; // avisos com o cartão na cor da pulseira
+const CARTAO_PULSEIRA=['embarque','inicio5','ultima','checkin'];
+const PISCA_COR={PRETA:'#898D8D',BRANCA:'#898D8D'}; // cor do piscar quando difere da pulseira // avisos com o cartão na cor da pulseira
 const TEMPO_FIXO={inicio5:30e3,embarque:60e3}; // padrão; a Central pode mudar (config.tempos, em segundos)
 function tempoFixo(tipo){const s=+((OPS.config&&OPS.config.tempos)||{})[tipo];return s>0?s*1000:(TEMPO_FIXO[tipo]||0)}
 const vistos=new Set();let primeira=true,fila=[],mostrando=false;
@@ -216,8 +217,8 @@ function proximoAviso(){
   al.style.setProperty('--cartao',OPS_PULSEIRAS[pul]);al.style.setProperty('--cartao-txt',claro?'#141213':'#ffffff');
   al.style.setProperty('--anel',claro?'rgba(20,18,19,.85)':'rgba(255,255,255,.9)');al.classList.add('cor-pulseira')}
  document.body.classList.add('flash');al.classList.add('on');
- // embarque: pisca 5 s na cor da pulseira (pulseira preta: fundo preto com borda branca para aparecer)
- if(a.tipo==='embarque'&&OPS_PULSEIRAS[pul]){b.style.setProperty('--pisca',OPS_PULSEIRAS[pul]);b.style.setProperty('--pisca-borda',pul==='PRETA'?'#ffffff':'transparent');
+ // embarque: pisca 5 s na cor da pulseira; pulseiras preta e branca piscam em cinza (Pantone #898D8D)
+ if(a.tipo==='embarque'&&OPS_PULSEIRAS[pul]){b.style.setProperty('--pisca',PISCA_COR[pul]||OPS_PULSEIRAS[pul]);b.style.setProperty('--pisca-borda','transparent');
   b.classList.remove('pisca-pulseira');void b.offsetWidth;b.classList.add('pisca-pulseira');tPisca=setTimeout(()=>b.classList.remove('pisca-pulseira'),5000)}
  const ini=Date.now(),fecha=()=>{clearTimeout(tPisca);b.classList.remove('pisca-pulseira');al.classList.remove('on');b.classList.remove('flash');destaque=null;alertaAtual=null;render();setTimeout(proximoAviso,600)};
  // tempo fixo na tela (configurável na Central): "Início em 5 minutos" 30 s, embarque 1 min por padrão
