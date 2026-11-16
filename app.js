@@ -260,8 +260,8 @@
   const comissaoLista = () => (Array.isArray(OPS.comissao) ? OPS.comissao : DB.team.map(t => ({ id: t.id, nome: t.name })));
   const vname = id => comissaoLista().find(p => p.id === id)?.nome || person(id)?.name || '—';
   // quem saiu da lista mas vendeu no ciclo continua no ranking (fora: true), para os totais baterem
-  function sellerRank(c) {
-    const sales = salesOf(c), lista = comissaoLista();
+  function sellerRank(c, lista = comissaoLista()) {
+    const sales = salesOf(c);
     const extras = [...new Set(sales.map(v => v.vendedor))].filter(id => !lista.some(p => p.id === id)).map(id => ({ id, nome: vname(id), fora: true }));
     return [...lista, ...extras].map(p => {
       const mine = sales.filter(v => v.vendedor === p.id);
@@ -969,11 +969,15 @@
 
   // ---------- Câmeras ----------
   let camCycle = cycleOf(today());
+  // modo de edição do card "Comissão individual": as mudanças ficam num rascunho até clicar em Salvar
+  let comRascunho = null;
   function pageCameras() {
     const k = camCycle, isCur = k.start === cycleOf(today()).start, sales = salesOf(k).sort((a, b) => b.date.localeCompare(a.date));
     const qtd = sales.reduce((a, v) => a + v.qtd, 0), valor = sales.reduce((a, v) => a + v.valor, 0);
     const gp = sales.filter(v => v.modelo === 'GoPro').reduce((a, v) => a + v.qtd, 0), c360 = qtd - gp;
-    const rank = sellerRank(k), anySale = rank.some(r => r.qtd > 0), editaCom = pode('venda');
+    const rank = sellerRank(k), anySale = rank.some(r => r.qtd > 0), podeCom = pode('venda');
+    if (!podeCom) comRascunho = null;
+    const editaCom = !!comRascunho, linhasCom = editaCom ? sellerRank(k, comRascunho) : rank;
     const max = Math.max(1, ...rank.map(r => r.valor)), maxQ = Math.max(1, ...rank.map(r => r.qtd));
     const ciclos = [-5, -4, -3, -2, -1, 0].map(n => shiftCycle(k, n));
     return `<div class="page-head"><div><h1>Venda de câmeras</h1><p>GoPro e 360° · comissão automática de 10% sobre o valor vendido.</p></div>
@@ -987,9 +991,10 @@
       </div>
       <div class="grid g2" style="gap:32px">
         <div><div class="section-title">Ranking de vendedores do ciclo</div><div class="card pad">${anySale ? rank.map((r, i) => rankRow(r, i, max)).join('') : '<div class="empty">Nenhuma venda neste ciclo.</div>'}</div></div>
-        <div><div class="section-title">Comissão individual</div><div class="card"><table class="tbl"><thead><tr><th>Vendedor</th><th>Un.</th><th>Vendido</th><th>Comissão</th>${editaCom ? '<th></th>' : ''}</tr></thead>
-          <tbody>${rank.filter(r => !r.fora).map(r => `<tr><td>${esc(r.name)}</td><td>${r.qtd}</td><td>${money(r.valor)}</td><td><b>${money(r.com)}</b></td>${editaCom ? `<td style="width:1%"><button class="icon-btn ghost" data-crm="${esc(r.id)}" aria-label="Remover ${esc(r.name)}">${icon('trash')}</button></td>` : ''}</tr>`).join('') || `<tr><td colspan="${editaCom ? 5 : 4}" class="muted">Nenhuma pessoa na lista.</td></tr>`}</tbody></table>
-          ${editaCom ? `<div style="padding:12px 16px;border-top:1px solid var(--border)"><button class="btn" id="comAdd">${icon('plus')} Adicionar pessoa</button></div>` : ''}</div></div>
+        <div><div class="section-title" style="display:flex;align-items:center;gap:8px">Comissão individual${podeCom && !editaCom ? `<button class="btn" id="comEdit" style="margin-left:auto">${icon('pencil')} Editar</button>` : ''}</div><div class="card"><table class="tbl"><thead><tr><th>Vendedor</th><th>Un.</th><th>Vendido</th><th>Comissão</th>${editaCom ? '<th></th>' : ''}</tr></thead>
+          <tbody>${linhasCom.filter(r => !r.fora).map(r => `<tr><td>${esc(r.name)}</td><td>${r.qtd}</td><td>${money(r.valor)}</td><td><b>${money(r.com)}</b></td>${editaCom ? `<td style="width:1%"><button class="icon-btn ghost" data-crm="${esc(r.id)}" aria-label="Remover ${esc(r.name)}">${icon('trash')}</button></td>` : ''}</tr>`).join('') || `<tr><td colspan="${editaCom ? 5 : 4}" class="muted">Nenhuma pessoa na lista.</td></tr>`}</tbody></table>
+          ${editaCom ? `<div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="comAdd">${icon('plus')} Adicionar pessoa</button>
+            <button class="btn" id="comCancel" style="margin-left:auto">Cancelar</button><button class="btn primary" id="comSave">Salvar</button></div>` : ''}</div></div>
       </div>
       <div class="section-title">Comparativo de desempenho</div>
       <div class="grid g2">
@@ -1037,28 +1042,32 @@
       try { us = (await api('/operadores')).operadores; } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
       // mesmo nome de alguém da equipe: usa o id da equipe, para as vendas antigas dessa pessoa continuarem contando
       const idDe = o => DB.team.find(t => t.name.trim().toLowerCase() === o.nome.trim().toLowerCase())?.id || `op:${o.id}`;
-      const lista = comissaoLista();
+      const lista = comRascunho || comissaoLista();
       const tem = o => lista.some(p => p.id === idDe(o) || p.nome.trim().toLowerCase() === o.nome.trim().toLowerCase());
       us.sort((a, b) => a.nome.localeCompare(b.nome));
       box.innerHTML = us.length ? `<div class="list">${us.map(o => `<div class="item"><div class="grow"><div class="title">${esc(o.nome)}</div><div class="meta">${PERFIS[perfilDe(o)] || ''}${o.ativo ? '' : ' · Desativado'}</div></div>
           ${tem(o) ? '<span class="muted small">Já está na lista</span>' : `<button class="btn primary" data-cadd="${esc(o.id)}">${icon('plus')} Adicionar</button>`}</div>`).join('')}</div>` : '<div class="empty">Nenhum usuário cadastrado.</div>';
-      box.querySelectorAll('[data-cadd]').forEach(b => b.onclick = async () => {
-        const o = us.find(x => x.id === b.dataset.cadd); b.disabled = true;
-        const r = await acaoOps({ tipo: 'comissao_salvar', lista: [...comissaoLista(), { id: idDe(o), nome: o.nome }] }, `${o.nome} adicionado`);
-        if (r) close(); else b.disabled = false;
+      // só entra no rascunho; vai para o servidor no Salvar
+      box.querySelectorAll('[data-cadd]').forEach(b => b.onclick = () => {
+        const o = us.find(x => x.id === b.dataset.cadd);
+        if (!comRascunho) return close();
+        comRascunho = [...comRascunho, { id: idDe(o), nome: o.nome }]; close(); render();
       });
     });
   }
   function bindCameras(root) {
     root.querySelectorAll('[data-cm]').forEach(b => b.onclick = () => { camCycle = shiftCycle(camCycle, +b.dataset.cm); render(); });
     const nova = root.querySelector('#newSale'); if (nova) nova.onclick = () => saleModal();
-    const salvaCom = (lista, msg) => acaoOps({ tipo: 'comissao_salvar', lista }, msg);
-    root.querySelectorAll('[data-crm]').forEach(b => b.onclick = () => {
-      const p = comissaoLista().find(x => x.id === b.dataset.crm); if (!p) return;
-      if (!confirm(`Remover ${p.nome} da comissão individual? As vendas já registradas continuam salvas.`)) return;
-      salvaCom(comissaoLista().filter(x => x.id !== p.id), `${p.nome} removido`);
-    });
+    const ed = root.querySelector('#comEdit'); if (ed) ed.onclick = () => { comRascunho = comissaoLista().map(p => ({ ...p })); render(); };
+    root.querySelectorAll('[data-crm]').forEach(b => b.onclick = () => { comRascunho = (comRascunho || []).filter(x => x.id !== b.dataset.crm); render(); });
     const add = root.querySelector('#comAdd'); if (add) add.onclick = comissaoAddModal;
+    const cancel = root.querySelector('#comCancel'); if (cancel) cancel.onclick = () => { comRascunho = null; render(); };
+    const salvar = root.querySelector('#comSave'); if (salvar) salvar.onclick = async () => {
+      salvar.disabled = true;
+      const lista = comRascunho; comRascunho = null;
+      const r = await acaoOps({ tipo: 'comissao_salvar', lista }, 'Comissão individual salva');
+      if (!r) { comRascunho = lista; render(); }
+    };
     root.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => saleModal(b.dataset.edit));
     root.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
       if (!confirm('Excluir esta venda?')) return;
